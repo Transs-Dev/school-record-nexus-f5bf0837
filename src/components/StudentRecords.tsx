@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Filter, Printer, Download, Loader } from "lucide-react";
-import { fetchAllStudents, type Student } from "@/utils/studentDatabase";
+import { Search, Filter, Loader } from "lucide-react";
+import { fetchAllStudents, printStudentList, downloadStudentList, type Student } from "@/utils/studentDatabase";
 import { toast } from "@/hooks/use-toast";
 
 const StudentRecords = () => {
@@ -62,15 +62,19 @@ const StudentRecords = () => {
     return matchesSearch && matchesGrade && matchesYear;
   });
 
-  const handlePrint = (grade?: string) => {
-    const printData = grade 
-      ? filteredStudents.filter(s => s.grade === grade)
-      : filteredStudents;
-    
-    console.log("Printing student records:", printData);
+  const handlePrint = () => {
+    printStudentList(filteredStudents);
     toast({
       title: "Print Prepared",
-      description: `Preparing to print ${printData.length} student records...`,
+      description: `Preparing to print ${filteredStudents.length} student records...`,
+    });
+  };
+
+  const handleDownload = () => {
+    downloadStudentList(filteredStudents);
+    toast({
+      title: "Download Started",
+      description: `Downloading ${filteredStudents.length} student records as CSV...`,
     });
   };
 
@@ -86,14 +90,14 @@ const StudentRecords = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div>
         <h2 className="text-3xl font-bold text-gray-900 mb-2">Student Records</h2>
         <p className="text-gray-600">Manage and view all student information</p>
       </div>
 
       {/* Filters and Search */}
-      <Card>
+      <Card className="transform hover:shadow-lg transition-all duration-300">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Filter className="w-5 h-5" />
@@ -140,17 +144,22 @@ const StudentRecords = () => {
             <div className="flex space-x-2">
               <Button 
                 variant="outline" 
-                onClick={() => handlePrint()}
-                className="flex-1"
+                onClick={handlePrint}
+                className="flex-1 transform hover:scale-105 transition-all duration-300"
               >
-                <Printer className="w-4 h-4 mr-2" />
-                Print All
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                Print
               </Button>
               <Button 
                 variant="outline"
-                onClick={() => handlePrint(selectedGrade !== "all" ? selectedGrade : undefined)}
+                onClick={handleDownload}
+                className="transform hover:scale-105 transition-all duration-300"
               >
-                <Download className="w-4 h-4" />
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
               </Button>
             </div>
           </div>
@@ -164,19 +173,19 @@ const StudentRecords = () => {
         </p>
         <div className="flex space-x-2">
           {selectedGrade !== "all" && (
-            <Badge variant="secondary">{selectedGrade}</Badge>
+            <Badge variant="secondary" className="animate-scale-in">{selectedGrade}</Badge>
           )}
           {selectedYear !== "all" && (
-            <Badge variant="secondary">Year {selectedYear}</Badge>
+            <Badge variant="secondary" className="animate-scale-in">Year {selectedYear}</Badge>
           )}
           {searchTerm && (
-            <Badge variant="secondary">Search: "{searchTerm}"</Badge>
+            <Badge variant="secondary" className="animate-scale-in">Search: "{searchTerm}"</Badge>
           )}
         </div>
       </div>
 
       {/* Student Records Table */}
-      <Card>
+      <Card className="transform hover:shadow-lg transition-all duration-300">
         <CardHeader>
           <CardTitle>Student Records</CardTitle>
           <CardDescription>
@@ -199,8 +208,12 @@ const StudentRecords = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredStudents.map((student) => (
-                  <TableRow key={student.id} className="hover:bg-gray-50">
+                {filteredStudents.map((student, index) => (
+                  <TableRow 
+                    key={student.id} 
+                    className="hover:bg-gray-50 transform transition-all duration-200 hover:scale-[1.01]"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
                     <TableCell className="font-mono text-sm">
                       {student.registration_number}
                     </TableCell>
@@ -228,7 +241,7 @@ const StudentRecords = () => {
           </div>
 
           {filteredStudents.length === 0 && (
-            <div className="text-center py-8">
+            <div className="text-center py-8 animate-fade-in">
               <p className="text-gray-500">No students found matching your criteria</p>
             </div>
           )}
