@@ -9,13 +9,63 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      students: {
+        Row: {
+          address: string | null
+          admission_date: string
+          alternative_contact: string | null
+          created_at: string
+          date_of_birth: string
+          gender: string
+          grade: string
+          id: string
+          parent_name: string
+          primary_contact: string
+          registration_number: string
+          student_name: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          admission_date?: string
+          alternative_contact?: string | null
+          created_at?: string
+          date_of_birth: string
+          gender: string
+          grade: string
+          id?: string
+          parent_name: string
+          primary_contact: string
+          registration_number: string
+          student_name: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          admission_date?: string
+          alternative_contact?: string | null
+          created_at?: string
+          date_of_birth?: string
+          gender?: string
+          grade?: string
+          id?: string
+          parent_name?: string
+          primary_contact?: string
+          registration_number?: string
+          student_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_registration_number: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

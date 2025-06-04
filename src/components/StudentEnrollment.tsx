@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Save, User, Users } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { insertStudent, type Student } from "@/utils/studentDatabase";
 
 const StudentEnrollment = () => {
   const [studentName, setStudentName] = useState("");
@@ -20,20 +21,13 @@ const StudentEnrollment = () => {
   const [address, setAddress] = useState("");
   const [primaryContact, setPrimaryContact] = useState("");
   const [alternativeContact, setAlternativeContact] = useState("");
+  const [gender, setGender] = useState<'Male' | 'Female'>('Male');
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Generate registration number
-  const generateRegistrationNumber = () => {
-    const currentYear = new Date().getFullYear().toString().slice(-2);
-    const studentNumber = Math.floor(Math.random() * 99999) + 1;
-    return `RSS/${studentNumber.toString().padStart(5, '0')}/${currentYear}`;
-  };
-
-  const [registrationNumber] = useState(generateRegistrationNumber());
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!studentName || !selectedClass || !dateOfBirth || !parentName || !primaryContact) {
+    if (!studentName || !selectedClass || !dateOfBirth || !parentName || !primaryContact || !gender) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields.",
@@ -42,20 +36,45 @@ const StudentEnrollment = () => {
       return;
     }
 
-    // Here you would typically save to database
-    toast({
-      title: "Student Enrolled Successfully!",
-      description: `Registration Number: ${registrationNumber}`,
-    });
+    setIsLoading(true);
 
-    // Reset form
-    setStudentName("");
-    setSelectedClass("");
-    setDateOfBirth(undefined);
-    setParentName("");
-    setAddress("");
-    setPrimaryContact("");
-    setAlternativeContact("");
+    try {
+      const studentData: Student = {
+        student_name: studentName,
+        grade: selectedClass,
+        date_of_birth: format(dateOfBirth, "yyyy-MM-dd"),
+        parent_name: parentName,
+        address: address || null,
+        primary_contact: primaryContact,
+        alternative_contact: alternativeContact || null,
+        gender: gender
+      };
+
+      const result = await insertStudent(studentData);
+
+      toast({
+        title: "Student Enrolled Successfully!",
+        description: `Registration Number: ${result.registration_number}`,
+      });
+
+      // Reset form
+      setStudentName("");
+      setSelectedClass("");
+      setDateOfBirth(undefined);
+      setParentName("");
+      setAddress("");
+      setPrimaryContact("");
+      setAlternativeContact("");
+      setGender('Male');
+    } catch (error) {
+      toast({
+        title: "Enrollment Failed",
+        description: "There was an error enrolling the student. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const grades = [
@@ -87,27 +106,6 @@ const StudentEnrollment = () => {
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="registration">Registration Number</Label>
-                    <Input
-                      id="registration"
-                      value={registrationNumber}
-                      disabled
-                      className="bg-gray-50 font-mono"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="admission-date">Date of Admission</Label>
-                    <Input
-                      id="admission-date"
-                      value={format(new Date(), "PPP")}
-                      disabled
-                      className="bg-gray-50"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
                     <Label htmlFor="student-name">Student Name *</Label>
                     <Input
                       id="student-name"
@@ -134,34 +132,48 @@ const StudentEnrollment = () => {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Date of Birth *</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !dateOfBirth && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateOfBirth ? format(dateOfBirth, "PPP") : "Pick a date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={dateOfBirth}
-                        onSelect={setDateOfBirth}
-                        disabled={(date) =>
-                          date > new Date() || date < new Date("1900-01-01")
-                        }
-                        initialFocus
-                        className="p-3 pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Date of Birth *</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !dateOfBirth && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateOfBirth ? format(dateOfBirth, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={dateOfBirth}
+                          onSelect={setDateOfBirth}
+                          disabled={(date) =>
+                            date > new Date() || date < new Date("1900-01-01")
+                          }
+                          initialFocus
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="gender">Gender *</Label>
+                    <Select value={gender} onValueChange={(value: 'Male' | 'Female') => setGender(value)} required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select gender" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <Card className="bg-blue-50 border-blue-200">
@@ -217,9 +229,9 @@ const StudentEnrollment = () => {
                   </CardContent>
                 </Card>
 
-                <Button type="submit" className="w-full" size="lg">
+                <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
                   <Save className="w-4 h-4 mr-2" />
-                  Enroll Student
+                  {isLoading ? "Enrolling..." : "Enroll Student"}
                 </Button>
               </form>
             </CardContent>
@@ -234,11 +246,6 @@ const StudentEnrollment = () => {
               <CardDescription>Review student information</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 bg-gray-50 rounded-lg space-y-2">
-                <p className="font-medium">Registration Number</p>
-                <p className="text-sm text-blue-600 font-mono">{registrationNumber}</p>
-              </div>
-              
               {studentName && (
                 <div className="p-4 bg-gray-50 rounded-lg space-y-2">
                   <p className="font-medium">Student Name</p>
@@ -250,6 +257,13 @@ const StudentEnrollment = () => {
                 <div className="p-4 bg-gray-50 rounded-lg space-y-2">
                   <p className="font-medium">Grade</p>
                   <p className="text-sm">{selectedClass}</p>
+                </div>
+              )}
+
+              {gender && (
+                <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+                  <p className="font-medium">Gender</p>
+                  <p className="text-sm">{gender}</p>
                 </div>
               )}
               

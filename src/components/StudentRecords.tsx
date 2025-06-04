@@ -1,87 +1,63 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Filter, Printer, Download } from "lucide-react";
+import { Search, Filter, Printer, Download, Loader } from "lucide-react";
+import { fetchAllStudents, type Student } from "@/utils/studentDatabase";
+import { toast } from "@/hooks/use-toast";
 
 const StudentRecords = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGrade, setSelectedGrade] = useState("all");
   const [selectedYear, setSelectedYear] = useState("all");
+  const [students, setStudents] = useState<Student[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Mock student data
-  const students = [
-    {
-      registrationNumber: "RSS/00001/25",
-      name: "John Kamau",
-      grade: "Grade 8",
-      admissionDate: "2025-01-15",
-      parentName: "Mary Kamau",
-      primaryContact: "+254712345678",
-      alternativeContact: "+254723456789",
-      year: "2025"
-    },
-    {
-      registrationNumber: "RSS/00002/25",
-      name: "Sarah Wanjiku",
-      grade: "Grade 7",
-      admissionDate: "2025-01-20",
-      parentName: "Peter Wanjiku",
-      primaryContact: "+254734567890",
-      alternativeContact: "",
-      year: "2025"
-    },
-    {
-      registrationNumber: "RSS/00003/24",
-      name: "David Mwangi",
-      grade: "Grade 9",
-      admissionDate: "2024-02-10",
-      parentName: "Grace Mwangi",
-      primaryContact: "+254745678901",
-      alternativeContact: "+254756789012",
-      year: "2024"
-    },
-    {
-      registrationNumber: "RSS/00004/25",
-      name: "Faith Akinyi",
-      grade: "Grade 6",
-      admissionDate: "2025-01-25",
-      parentName: "James Akinyi",
-      primaryContact: "+254767890123",
-      alternativeContact: "",
-      year: "2025"
-    },
-    {
-      registrationNumber: "RSS/00005/24",
-      name: "Michael Ochieng",
-      grade: "Grade 8",
-      admissionDate: "2024-03-05",
-      parentName: "Rose Ochieng",
-      primaryContact: "+254778901234",
-      alternativeContact: "+254789012345",
-      year: "2024"
+  useEffect(() => {
+    loadStudents();
+  }, []);
+
+  const loadStudents = async () => {
+    try {
+      setIsLoading(true);
+      const data = await fetchAllStudents();
+      setStudents(data);
+    } catch (error) {
+      console.error('Error loading students:', error);
+      toast({
+        title: "Error Loading Students",
+        description: "Failed to load student records. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
     }
-  ];
+  };
 
   const grades = [
     "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5",
     "Grade 6", "Grade 7", "Grade 8", "Grade 9"
   ];
 
-  const years = ["2024", "2025"];
+  // Get unique years from student data
+  const years = Array.from(new Set(students.map(student => 
+    student.admission_date ? new Date(student.admission_date).getFullYear().toString() : '2025'
+  ))).sort().reverse();
 
   // Filter students based on search and filters
   const filteredStudents = students.filter((student) => {
     const matchesSearch = 
-      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase());
+      student.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (student.registration_number && student.registration_number.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesGrade = selectedGrade === "all" || student.grade === selectedGrade;
-    const matchesYear = selectedYear === "all" || student.year === selectedYear;
+    
+    const studentYear = student.admission_date ? new Date(student.admission_date).getFullYear().toString() : '2025';
+    const matchesYear = selectedYear === "all" || studentYear === selectedYear;
     
     return matchesSearch && matchesGrade && matchesYear;
   });
@@ -92,9 +68,22 @@ const StudentRecords = () => {
       : filteredStudents;
     
     console.log("Printing student records:", printData);
-    // Here you would implement actual printing functionality
-    alert(`Preparing to print ${printData.length} student records...`);
+    toast({
+      title: "Print Prepared",
+      description: `Preparing to print ${printData.length} student records...`,
+    });
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center space-x-2">
+          <Loader className="w-6 h-6 animate-spin" />
+          <span>Loading student records...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -202,6 +191,7 @@ const StudentRecords = () => {
                   <TableHead>Registration Number</TableHead>
                   <TableHead>Student Name</TableHead>
                   <TableHead>Grade</TableHead>
+                  <TableHead>Gender</TableHead>
                   <TableHead>Admission Date</TableHead>
                   <TableHead>Parent/Guardian</TableHead>
                   <TableHead>Primary Contact</TableHead>
@@ -210,19 +200,26 @@ const StudentRecords = () => {
               </TableHeader>
               <TableBody>
                 {filteredStudents.map((student) => (
-                  <TableRow key={student.registrationNumber} className="hover:bg-gray-50">
+                  <TableRow key={student.id} className="hover:bg-gray-50">
                     <TableCell className="font-mono text-sm">
-                      {student.registrationNumber}
+                      {student.registration_number}
                     </TableCell>
-                    <TableCell className="font-medium">{student.name}</TableCell>
+                    <TableCell className="font-medium">{student.student_name}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{student.grade}</Badge>
                     </TableCell>
-                    <TableCell>{student.admissionDate}</TableCell>
-                    <TableCell>{student.parentName}</TableCell>
-                    <TableCell>{student.primaryContact}</TableCell>
+                    <TableCell>
+                      <Badge variant={student.gender === 'Male' ? 'default' : 'secondary'}>
+                        {student.gender}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {student.admission_date ? new Date(student.admission_date).toLocaleDateString() : 'N/A'}
+                    </TableCell>
+                    <TableCell>{student.parent_name}</TableCell>
+                    <TableCell>{student.primary_contact}</TableCell>
                     <TableCell className="text-gray-500">
-                      {student.alternativeContact || "N/A"}
+                      {student.alternative_contact || "N/A"}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -1,22 +1,52 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, GraduationCap, FileText, DollarSign, BookOpen, UserCheck } from "lucide-react";
+import { Users, GraduationCap, FileText, DollarSign, BookOpen, UserCheck, Loader } from "lucide-react";
 import StudentEnrollment from "@/components/StudentEnrollment";
 import StudentRecords from "@/components/StudentRecords";
 import AcademicSection from "@/components/AcademicSection";
 import StudentPortal from "@/components/StudentPortal";
+import { getStudentStats } from "@/utils/studentDatabase";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [studentStats, setStudentStats] = useState({
+    total: 0,
+    maleCount: 0,
+    femaleCount: 0
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  useEffect(() => {
+    loadStudentStats();
+  }, []);
+
+  const loadStudentStats = async () => {
+    try {
+      setIsLoadingStats(true);
+      const stats = await getStudentStats();
+      setStudentStats(stats);
+    } catch (error) {
+      console.error('Error loading student stats:', error);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
+
+  // Refresh stats when switching to dashboard tab
+  useEffect(() => {
+    if (activeTab === "dashboard") {
+      loadStudentStats();
+    }
+  }, [activeTab]);
 
   const stats = [
     {
       title: "Total Students",
-      value: "1,234",
-      change: "+12 this month",
+      value: isLoadingStats ? "..." : studentStats.total.toString(),
+      change: `${studentStats.maleCount} Male, ${studentStats.femaleCount} Female`,
       icon: Users,
       color: "text-blue-600"
     },
@@ -91,7 +121,11 @@ const Index = () => {
                     <CardTitle className="text-sm font-medium text-gray-600">
                       {stat.title}
                     </CardTitle>
-                    <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                    {isLoadingStats && index === 0 ? (
+                      <Loader className="w-5 h-5 animate-spin text-blue-600" />
+                    ) : (
+                      <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                    )}
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
