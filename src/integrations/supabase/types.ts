@@ -9,6 +9,68 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      examination_marks: {
+        Row: {
+          academic_year: string
+          created_at: string
+          english: number | null
+          grade: string
+          id: string
+          ire_cre: number | null
+          kiswahili: number | null
+          mathematics: number | null
+          remarks: string | null
+          science: number | null
+          social_studies: number | null
+          student_id: string
+          term: string
+          total_marks: number | null
+          updated_at: string
+        }
+        Insert: {
+          academic_year?: string
+          created_at?: string
+          english?: number | null
+          grade: string
+          id?: string
+          ire_cre?: number | null
+          kiswahili?: number | null
+          mathematics?: number | null
+          remarks?: string | null
+          science?: number | null
+          social_studies?: number | null
+          student_id: string
+          term: string
+          total_marks?: number | null
+          updated_at?: string
+        }
+        Update: {
+          academic_year?: string
+          created_at?: string
+          english?: number | null
+          grade?: string
+          id?: string
+          ire_cre?: number | null
+          kiswahili?: number | null
+          mathematics?: number | null
+          remarks?: string | null
+          science?: number | null
+          social_studies?: number | null
+          student_id?: string
+          term?: string
+          total_marks?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "examination_marks_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           address: string | null
@@ -62,6 +124,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_position: {
+        Args: {
+          p_student_id: string
+          p_grade: string
+          p_term: string
+          p_academic_year: string
+        }
+        Returns: number
+      }
       generate_registration_number: {
         Args: Record<PropertyKey, never>
         Returns: string

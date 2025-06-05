@@ -17,7 +17,25 @@ export interface Student {
   updated_at?: string;
 }
 
-export const insertStudent = async (studentData: Omit<Student, 'id' | 'registration_number' | 'created_at' | 'updated_at'>) => {
+export interface ExaminationMark {
+  id?: string;
+  student_id: string;
+  grade: string;
+  term: string;
+  academic_year: string;
+  mathematics?: number;
+  english?: number;
+  kiswahili?: number;
+  science?: number;
+  social_studies?: number;
+  ire_cre?: number;
+  total_marks?: number;
+  remarks?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const insertStudent = async (studentData: Omit<Student, 'id' | 'created_at' | 'updated_at'>) => {
   const { data, error } = await supabase
     .from('students')
     .insert(studentData)
@@ -47,6 +65,74 @@ export const fetchAllStudents = async (): Promise<Student[]> => {
     ...student,
     gender: student.gender as 'Male' | 'Female'
   }));
+};
+
+export const fetchStudentsByGrade = async (grade: string): Promise<Student[]> => {
+  const { data, error } = await supabase
+    .from('students')
+    .select('*')
+    .eq('grade', grade)
+    .order('student_name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching students by grade:', error);
+    throw error;
+  }
+
+  return (data || []).map(student => ({
+    ...student,
+    gender: student.gender as 'Male' | 'Female'
+  }));
+};
+
+export const saveExaminationMarks = async (markData: Omit<ExaminationMark, 'id' | 'total_marks' | 'created_at' | 'updated_at'>) => {
+  const { data, error } = await supabase
+    .from('examination_marks')
+    .upsert(markData, {
+      onConflict: 'student_id,grade,term,academic_year'
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error saving examination marks:', error);
+    throw error;
+  }
+
+  return data;
+};
+
+export const fetchExaminationMarks = async (grade: string, term: string, academicYear: string): Promise<ExaminationMark[]> => {
+  const { data, error } = await supabase
+    .from('examination_marks')
+    .select('*')
+    .eq('grade', grade)
+    .eq('term', term)
+    .eq('academic_year', academicYear)
+    .order('total_marks', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching examination marks:', error);
+    throw error;
+  }
+
+  return data || [];
+};
+
+export const calculateStudentPosition = async (studentId: string, grade: string, term: string, academicYear: string): Promise<number> => {
+  const { data, error } = await supabase.rpc('calculate_position', {
+    p_student_id: studentId,
+    p_grade: grade,
+    p_term: term,
+    p_academic_year: academicYear
+  });
+
+  if (error) {
+    console.error('Error calculating position:', error);
+    return 0;
+  }
+
+  return data || 0;
 };
 
 export const getStudentStats = async () => {

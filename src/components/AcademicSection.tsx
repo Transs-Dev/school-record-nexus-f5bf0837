@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,13 +8,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { BookOpen, Save, Calculator } from "lucide-react";
+import { BookOpen, Save, Calculator, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { 
+  fetchStudentsByGrade, 
+  saveExaminationMarks, 
+  fetchExaminationMarks, 
+  calculateStudentPosition,
+  type Student,
+  type ExaminationMark 
+} from "@/utils/studentDatabase";
 
 const AcademicSection = () => {
   const [selectedGrade, setSelectedGrade] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("");
+  const [students, setStudents] = useState<Student[]>([]);
   const [studentMarks, setStudentMarks] = useState<Record<string, any>>({});
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const grades = [
     "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5",
@@ -24,63 +35,124 @@ const AcademicSection = () => {
   const terms = ["Term 1", "Term 2", "Term 3"];
 
   const subjects = [
-    "Mathematics",
-    "English",
-    "Kiswahili",
-    "Science",
-    "Social Studies",
-    "IRE/CRE"
+    "mathematics",
+    "english",
+    "kiswahili",
+    "science",
+    "social_studies",
+    "ire_cre"
   ];
 
-  // Mock students for selected grade
-  const getStudentsForGrade = (grade: string) => {
-    if (!grade) return [];
-    
-    return [
-      { registrationNumber: "RSS/00001/25", name: "John Kamau" },
-      { registrationNumber: "RSS/00002/25", name: "Sarah Wanjiku" },
-      { registrationNumber: "RSS/00003/25", name: "David Mwangi" },
-      { registrationNumber: "RSS/00004/25", name: "Faith Akinyi" },
-      { registrationNumber: "RSS/00005/25", name: "Michael Ochieng" }
-    ].filter((_, index) => grade.includes((index % 3 + 7).toString())); // Mock filtering
+  const subjectLabels = {
+    mathematics: "Mathematics",
+    english: "English",
+    kiswahili: "Kiswahili", 
+    science: "Science",
+    social_studies: "Social Studies",
+    ire_cre: "IRE/CRE"
   };
 
-  const students = getStudentsForGrade(selectedGrade);
+  const currentYear = new Date().getFullYear().toString();
 
-  const updateMark = (regNumber: string, subject: string, mark: string) => {
+  // Load students when grade changes
+  useEffect(() => {
+    if (selectedGrade) {
+      loadStudents();
+    } else {
+      setStudents([]);
+      setStudentMarks({});
+    }
+  }, [selectedGrade]);
+
+  // Load existing marks when grade and term change
+  useEffect(() => {
+    if (selectedGrade && selectedTerm) {
+      loadExistingMarks();
+    }
+  }, [selectedGrade, selectedTerm]);
+
+  const loadStudents = async () => {
+    try {
+      setLoading(true);
+      const studentsData = await fetchStudentsByGrade(selectedGrade);
+      setStudents(studentsData);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load students. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadExistingMarks = async () => {
+    try {
+      const existingMarks = await fetchExaminationMarks(selectedGrade, selectedTerm, currentYear);
+      const marksMap: Record<string, any> = {};
+      
+      existingMarks.forEach((mark) => {
+        marksMap[mark.student_id] = {
+          mathematics: mark.mathematics || 0,
+          english: mark.english || 0,
+          kiswahili: mark.kiswahili || 0,
+          science: mark.science || 0,
+          social_studies: mark.social_studies || 0,
+          ire_cre: mark.ire_cre || 0,
+          remarks: mark.remarks || ""
+        };
+      });
+      
+      setStudentMarks(marksMap);
+    } catch (error) {
+      console.error("Error loading existing marks:", error);
+    }
+  };
+
+  const updateMark = (studentId: string, subject: string, mark: string) => {
     const numericMark = parseInt(mark) || 0;
+    
+    if (numericMark < 0 || numericMark > 100) {
+      toast({
+        title: "Invalid Mark",
+        description: "Marks must be between 0 and 100.",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setStudentMarks(prev => ({
       ...prev,
-      [regNumber]: {
-        ...prev[regNumber],
+      [studentId]: {
+        ...prev[studentId],
         [subject]: numericMark
       }
     }));
   };
 
-  const updateRemarks = (regNumber: string, remarks: string) => {
+  const updateRemarks = (studentId: string, remarks: string) => {
     setStudentMarks(prev => ({
       ...prev,
-      [regNumber]: {
-        ...prev[regNumber],
+      [studentId]: {
+        ...prev[studentId],
         remarks
       }
     }));
   };
 
-  const calculateTotal = (regNumber: string) => {
-    const marks = studentMarks[regNumber] || {};
+  const calculateTotal = (studentId: string) => {
+    const marks = studentMarks[studentId] || {};
     return subjects.reduce((total, subject) => total + (marks[subject] || 0), 0);
   };
 
-  const calculatePosition = (regNumber: string) => {
+  const calculatePosition = (studentId: string) => {
     const totals = students.map(student => ({
-      regNumber: student.registrationNumber,
-      total: calculateTotal(student.registrationNumber)
+      studentId: student.id!,
+      total: calculateTotal(student.id!)
     })).sort((a, b) => b.total - a.total);
 
-    const position = totals.findIndex(t => t.regNumber === regNumber) + 1;
+    const position = totals.findIndex(t => t.studentId === studentId) + 1;
     return position;
   };
 
@@ -92,7 +164,7 @@ const AcademicSection = () => {
     return "Needs improvement";
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selectedGrade || !selectedTerm) {
       toast({
         title: "Missing Selection",
@@ -102,17 +174,49 @@ const AcademicSection = () => {
       return;
     }
 
-    // Here you would save to database
-    toast({
-      title: "Marks Saved Successfully!",
-      description: `Results for ${selectedGrade} - ${selectedTerm} have been saved.`,
-    });
+    try {
+      setSaving(true);
+      
+      // Save marks for each student
+      for (const student of students) {
+        const marks = studentMarks[student.id!];
+        if (marks) {
+          const markData = {
+            student_id: student.id!,
+            grade: selectedGrade,
+            term: selectedTerm,
+            academic_year: currentYear,
+            mathematics: marks.mathematics || 0,
+            english: marks.english || 0,
+            kiswahili: marks.kiswahili || 0,
+            science: marks.science || 0,
+            social_studies: marks.social_studies || 0,
+            ire_cre: marks.ire_cre || 0,
+            remarks: marks.remarks || generateRemarks(calculateTotal(student.id!))
+          };
 
-    console.log("Saving marks:", {
-      grade: selectedGrade,
-      term: selectedTerm,
-      marks: studentMarks
-    });
+          await saveExaminationMarks(markData);
+        }
+      }
+
+      toast({
+        title: "Marks Saved Successfully!",
+        description: `Results for ${selectedGrade} - ${selectedTerm} have been saved.`,
+      });
+
+      // Reload marks to get updated positions
+      await loadExistingMarks();
+
+    } catch (error) {
+      toast({
+        title: "Error Saving Marks",
+        description: "Failed to save marks. Please try again.",
+        variant: "destructive"
+      });
+      console.error("Error saving marks:", error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -169,8 +273,18 @@ const AcademicSection = () => {
         </CardContent>
       </Card>
 
+      {/* Loading State */}
+      {loading && (
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin mr-2" />
+            <span>Loading students...</span>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Marks Entry Table */}
-      {selectedGrade && selectedTerm && (
+      {selectedGrade && selectedTerm && !loading && students.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -190,7 +304,7 @@ const AcademicSection = () => {
                     <TableHead className="min-w-[150px]">Student Name</TableHead>
                     {subjects.map((subject) => (
                       <TableHead key={subject} className="min-w-[100px] text-center">
-                        {subject}
+                        {subjectLabels[subject as keyof typeof subjectLabels]}
                       </TableHead>
                     ))}
                     <TableHead className="min-w-[80px] text-center">Total</TableHead>
@@ -200,16 +314,16 @@ const AcademicSection = () => {
                 </TableHeader>
                 <TableBody>
                   {students.map((student) => {
-                    const total = calculateTotal(student.registrationNumber);
-                    const position = calculatePosition(student.registrationNumber);
+                    const total = calculateTotal(student.id!);
+                    const position = calculatePosition(student.id!);
                     
                     return (
-                      <TableRow key={student.registrationNumber}>
+                      <TableRow key={student.id}>
                         <TableCell className="font-mono text-sm">
-                          {student.registrationNumber}
+                          {student.registration_number}
                         </TableCell>
                         <TableCell className="font-medium">
-                          {student.name}
+                          {student.student_name}
                         </TableCell>
                         {subjects.map((subject) => (
                           <TableCell key={subject}>
@@ -218,8 +332,8 @@ const AcademicSection = () => {
                               min="0"
                               max="100"
                               placeholder="0"
-                              value={studentMarks[student.registrationNumber]?.[subject] || ""}
-                              onChange={(e) => updateMark(student.registrationNumber, subject, e.target.value)}
+                              value={studentMarks[student.id!]?.[subject] || ""}
+                              onChange={(e) => updateMark(student.id!, subject, e.target.value)}
                               className="w-20 text-center"
                             />
                           </TableCell>
@@ -239,8 +353,8 @@ const AcademicSection = () => {
                         <TableCell>
                           <Textarea
                             placeholder={total > 0 ? generateRemarks(total) : "Enter remarks"}
-                            value={studentMarks[student.registrationNumber]?.remarks || ""}
-                            onChange={(e) => updateRemarks(student.registrationNumber, e.target.value)}
+                            value={studentMarks[student.id!]?.remarks || ""}
+                            onChange={(e) => updateRemarks(student.id!, e.target.value)}
                             className="min-w-[200px] h-8 resize-none"
                           />
                         </TableCell>
@@ -256,15 +370,38 @@ const AcademicSection = () => {
                 <Calculator className="w-4 h-4" />
                 <span>Total marks calculated automatically (out of 600)</span>
               </div>
-              <Button onClick={handleSave} size="lg">
-                <Save className="w-4 h-4 mr-2" />
-                Save All Marks
+              <Button onClick={handleSave} size="lg" disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save All Marks
+                  </>
+                )}
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
+      {/* No Students Found */}
+      {selectedGrade && selectedTerm && !loading && students.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <BookOpen className="w-12 h-12 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Students Found</h3>
+            <p className="text-gray-600 text-center">
+              No students found for {selectedGrade}. Please check if students are enrolled in this grade.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Initial State */}
       {!selectedGrade && !selectedTerm && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12">
