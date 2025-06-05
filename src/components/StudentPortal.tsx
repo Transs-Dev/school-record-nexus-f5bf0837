@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,90 +9,132 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogIn, User, GraduationCap, DollarSign, BookOpen, Award } from "lucide-react";
+import { LogIn, User, GraduationCap, DollarSign, BookOpen, Award, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { 
+  fetchAllStudents, 
+  fetchExaminationMarks, 
+  calculateStudentPosition,
+  type Student,
+  type ExaminationMark 
+} from "@/utils/studentDatabase";
 
 const StudentPortal = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginData, setLoginData] = useState({ registrationNumber: "", password: "" });
   const [selectedTerm, setSelectedTerm] = useState("Term 1");
-  
-  // Mock student data
-  const studentData = {
-    name: "John Kamau",
-    registrationNumber: "RSS/00001/25",
-    currentGrade: "Grade 8",
-    feesData: {
-      "Term 1": { paid: 15000, total: 20000, percentage: 75 },
-      "Term 2": { paid: 18000, total: 20000, percentage: 90 },
-      "Term 3": { paid: 10000, total: 20000, percentage: 50 }
-    },
-    resultsData: {
-      "Term 1": {
-        subjects: [
-          { name: "Mathematics", score: 85 },
-          { name: "English", score: 78 },
-          { name: "Kiswahili", score: 82 },
-          { name: "Science", score: 88 },
-          { name: "Social Studies", score: 75 },
-          { name: "IRE/CRE", score: 80 }
-        ],
-        totalMarks: 488,
-        maxMarks: 600,
-        position: 3,
-        remarks: "Excellent performance. Keep up the good work!"
-      },
-      "Term 2": {
-        subjects: [
-          { name: "Mathematics", score: 92 },
-          { name: "English", score: 85 },
-          { name: "Kiswahili", score: 88 },
-          { name: "Science", score: 90 },
-          { name: "Social Studies", score: 82 },
-          { name: "IRE/CRE", score: 85 }
-        ],
-        totalMarks: 522,
-        maxMarks: 600,
-        position: 1,
-        remarks: "Outstanding improvement! First position in class."
-      },
-      "Term 3": {
-        subjects: [
-          { name: "Mathematics", score: 0 },
-          { name: "English", score: 0 },
-          { name: "Kiswahili", score: 0 },
-          { name: "Science", score: 0 },
-          { name: "Social Studies", score: 0 },
-          { name: "IRE/CRE", score: 0 }
-        ],
-        totalMarks: 0,
-        maxMarks: 600,
-        position: 0,
-        remarks: "Results not yet available"
+  const [loading, setLoading] = useState(false);
+  const [studentData, setStudentData] = useState<Student | null>(null);
+  const [examResults, setExamResults] = useState<Record<string, ExaminationMark | null>>({});
+  const [studentPosition, setStudentPosition] = useState<Record<string, number>>({});
+
+  const terms = ["Term 1", "Term 2", "Term 3"];
+  const currentYear = new Date().getFullYear().toString();
+
+  const subjects = [
+    { key: "mathematics", label: "Mathematics" },
+    { key: "english", label: "English" },
+    { key: "kiswahili", label: "Kiswahili" },
+    { key: "science", label: "Science" },
+    { key: "social_studies", label: "Social Studies" },
+    { key: "ire_cre", label: "IRE/CRE" }
+  ];
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    try {
+      // Find student by registration number
+      const students = await fetchAllStudents();
+      const foundStudent = students.find(
+        student => student.registration_number === loginData.registrationNumber
+      );
+
+      if (!foundStudent) {
+        toast({
+          title: "Student not found",
+          description: "The registration number entered is not found in our records.",
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
       }
+
+      // Check password (default is "student")
+      if (loginData.password !== "student") {
+        toast({
+          title: "Invalid password",
+          description: "Please check your password and try again.",
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Login successful
+      setIsLoggedIn(true);
+      setStudentData(foundStudent);
+      
+      // Load examination results for all terms
+      await loadExaminationResults(foundStudent);
+
+      toast({
+        title: "Login Successful!",
+        description: `Welcome back, ${foundStudent.student_name}`,
+      });
+
+    } catch (error) {
+      toast({
+        title: "Login Failed",
+        description: "An error occurred during login. Please try again.",
+        variant: "destructive"
+      });
+      console.error("Login error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (loginData.registrationNumber === "RSS/00001/25" && loginData.password === "student") {
-      setIsLoggedIn(true);
-      toast({
-        title: "Login Successful!",
-        description: `Welcome back, ${studentData.name}`,
-      });
-    } else {
-      toast({
-        title: "Login Failed",
-        description: "Invalid registration number or password",
-        variant: "destructive"
-      });
+  const loadExaminationResults = async (student: Student) => {
+    const results: Record<string, ExaminationMark | null> = {};
+    const positions: Record<string, number> = {};
+
+    for (const term of terms) {
+      try {
+        const termResults = await fetchExaminationMarks(student.grade, term, currentYear);
+        const studentResult = termResults.find(result => result.student_id === student.id);
+        
+        if (studentResult) {
+          results[term] = studentResult;
+          // Calculate position for this student
+          const position = await calculateStudentPosition(
+            student.id!,
+            student.grade,
+            term,
+            currentYear
+          );
+          positions[term] = position;
+        } else {
+          results[term] = null;
+          positions[term] = 0;
+        }
+      } catch (error) {
+        console.error(`Error loading results for ${term}:`, error);
+        results[term] = null;
+        positions[term] = 0;
+      }
     }
+
+    setExamResults(results);
+    setStudentPosition(positions);
   };
 
   const handleLogout = () => {
     setIsLoggedIn(false);
+    setStudentData(null);
+    setExamResults({});
+    setStudentPosition({});
     setLoginData({ registrationNumber: "", password: "" });
     toast({
       title: "Logged Out",
@@ -100,8 +142,33 @@ const StudentPortal = () => {
     });
   };
 
-  const currentFees = studentData.feesData[selectedTerm as keyof typeof studentData.feesData];
-  const currentResults = studentData.resultsData[selectedTerm as keyof typeof studentData.resultsData];
+  const calculatePercentage = (totalMarks: number, maxMarks: number = 600) => {
+    return Math.round((totalMarks / maxMarks) * 100);
+  };
+
+  const getGrade = (score: number) => {
+    if (score >= 80) return "A";
+    if (score >= 60) return "B";
+    if (score >= 40) return "C";
+    return "D";
+  };
+
+  const getGradeVariant = (score: number) => {
+    if (score >= 80) return "default";
+    if (score >= 60) return "secondary";
+    return "destructive";
+  };
+
+  // Mock fee data (can be replaced with real data from database later)
+  const getFeeData = (term: string) => {
+    const baseAmount = 20000;
+    const paid = Math.floor(Math.random() * baseAmount);
+    return {
+      paid,
+      total: baseAmount,
+      percentage: Math.round((paid / baseAmount) * 100)
+    };
+  };
 
   if (!isLoggedIn) {
     return (
@@ -139,17 +206,26 @@ const StudentPortal = () => {
                   required
                 />
               </div>
-              <Button type="submit" className="w-full">
-                <LogIn className="w-4 h-4 mr-2" />
-                Login to Portal
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Logging in...
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Login to Portal
+                  </>
+                )}
               </Button>
             </form>
             
             <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-              <h4 className="font-medium text-blue-800 mb-2">Demo Account</h4>
+              <h4 className="font-medium text-blue-800 mb-2">Login Information</h4>
               <p className="text-sm text-blue-600">
-                Registration: RSS/00001/25<br />
-                Password: student
+                Use your registration number as username<br />
+                Default password: student
               </p>
             </div>
           </CardContent>
@@ -158,13 +234,17 @@ const StudentPortal = () => {
     );
   }
 
+  const currentExamResult = examResults[selectedTerm];
+  const currentPosition = studentPosition[selectedTerm] || 0;
+  const currentFees = getFeeData(selectedTerm);
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
           <h2 className="text-3xl font-bold text-gray-900 mb-2">Student Dashboard</h2>
-          <p className="text-gray-600">Welcome back, {studentData.name}</p>
+          <p className="text-gray-600">Welcome back, {studentData?.student_name}</p>
         </div>
         <Button variant="outline" onClick={handleLogout}>
           Logout
@@ -182,15 +262,19 @@ const StudentPortal = () => {
             <div className="space-y-2">
               <div>
                 <p className="text-sm text-gray-600">Name</p>
-                <p className="font-medium">{studentData.name}</p>
+                <p className="font-medium">{studentData?.student_name}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Registration Number</p>
-                <p className="font-mono text-sm">{studentData.registrationNumber}</p>
+                <p className="font-mono text-sm">{studentData?.registration_number}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Current Grade</p>
-                <Badge variant="secondary">{studentData.currentGrade}</Badge>
+                <Badge variant="secondary">{studentData?.grade}</Badge>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Date of Birth</p>
+                <p className="text-sm">{studentData?.date_of_birth}</p>
               </div>
             </div>
           </CardContent>
@@ -226,22 +310,28 @@ const StudentPortal = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Last Exam</span>
-                <span className="font-medium">{currentResults.totalMarks}/{currentResults.maxMarks}</span>
-              </div>
-              {currentResults.position > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Class Position</span>
-                  <Badge variant="default">#{currentResults.position}</Badge>
-                </div>
+              {currentExamResult ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Last Exam</span>
+                    <span className="font-medium">{currentExamResult.total_marks || 0}/600</span>
+                  </div>
+                  {currentPosition > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Class Position</span>
+                      <Badge variant="default">#{currentPosition}</Badge>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Percentage</span>
+                    <span className="font-medium">
+                      {calculatePercentage(currentExamResult.total_marks || 0)}%
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-gray-600">No results available</p>
               )}
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Percentage</span>
-                <span className="font-medium">
-                  {currentResults.totalMarks > 0 ? Math.round((currentResults.totalMarks / currentResults.maxMarks) * 100) : 0}%
-                </span>
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -261,26 +351,112 @@ const StudentPortal = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Term 1">Term 1</SelectItem>
-              <SelectItem value="Term 2">Term 2</SelectItem>
-              <SelectItem value="Term 3">Term 3</SelectItem>
+              {terms.map((term) => (
+                <SelectItem key={term} value={term}>
+                  {term}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </CardContent>
       </Card>
 
       {/* Detailed Information Tabs */}
-      <Tabs defaultValue="fees" className="space-y-4">
+      <Tabs defaultValue="results" className="space-y-4">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="fees" className="flex items-center space-x-2">
-            <DollarSign className="w-4 h-4" />
-            <span>Fee Details</span>
-          </TabsTrigger>
           <TabsTrigger value="results" className="flex items-center space-x-2">
             <BookOpen className="w-4 h-4" />
             <span>Exam Results</span>
           </TabsTrigger>
+          <TabsTrigger value="fees" className="flex items-center space-x-2">
+            <DollarSign className="w-4 h-4" />
+            <span>Fee Details</span>
+          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="results">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Award className="w-5 h-5" />
+                <span>Examination Results - {selectedTerm}</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {currentExamResult && currentExamResult.total_marks && currentExamResult.total_marks > 0 ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-sm text-blue-600 font-medium">Total Marks</p>
+                      <p className="text-2xl font-bold text-blue-700">
+                        {currentExamResult.total_marks}/600
+                      </p>
+                    </div>
+                    {currentPosition > 0 && (
+                      <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                        <p className="text-sm text-purple-600 font-medium">Class Position</p>
+                        <p className="text-2xl font-bold text-purple-700">
+                          #{currentPosition}
+                        </p>
+                      </div>
+                    )}
+                    <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                      <p className="text-sm text-green-600 font-medium">Percentage</p>
+                      <p className="text-2xl font-bold text-green-700">
+                        {calculatePercentage(currentExamResult.total_marks)}%
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium mb-3">Subject-wise Performance</h4>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Subject</TableHead>
+                          <TableHead className="text-center">Score</TableHead>
+                          <TableHead className="text-center">Grade</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {subjects.map((subject) => {
+                          const score = currentExamResult[subject.key as keyof ExaminationMark] as number || 0;
+                          return (
+                            <TableRow key={subject.key}>
+                              <TableCell className="font-medium">{subject.label}</TableCell>
+                              <TableCell className="text-center">{score}/100</TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant={getGradeVariant(score)}>
+                                  {getGrade(score)}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {currentExamResult.remarks && (
+                    <div className="p-4 bg-gray-50 rounded-lg">
+                      <h4 className="font-medium mb-2">Teacher's Remarks</h4>
+                      <p className="text-gray-700">{currentExamResult.remarks}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Results Not Available</h3>
+                  <p className="text-gray-600">
+                    Examination results for {selectedTerm} are not yet available. 
+                    Please check back later or contact your teacher.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="fees">
           <Card>
@@ -331,85 +507,11 @@ const StudentPortal = () => {
                     {currentFees.percentage === 100 ? "Fully Paid" : 
                      currentFees.percentage >= 75 ? "Almost Complete" : "Outstanding Balance"}
                   </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="results">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Award className="w-5 h-5" />
-                <span>Examination Results - {selectedTerm}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {currentResults.totalMarks > 0 ? (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <p className="text-sm text-blue-600 font-medium">Total Marks</p>
-                      <p className="text-2xl font-bold text-blue-700">
-                        {currentResults.totalMarks}/{currentResults.maxMarks}
-                      </p>
-                    </div>
-                    <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                      <p className="text-sm text-purple-600 font-medium">Class Position</p>
-                      <p className="text-2xl font-bold text-purple-700">
-                        #{currentResults.position}
-                      </p>
-                    </div>
-                    <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                      <p className="text-sm text-green-600 font-medium">Percentage</p>
-                      <p className="text-2xl font-bold text-green-700">
-                        {Math.round((currentResults.totalMarks / currentResults.maxMarks) * 100)}%
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-medium mb-3">Subject-wise Performance</h4>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Subject</TableHead>
-                          <TableHead className="text-center">Score</TableHead>
-                          <TableHead className="text-center">Grade</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {currentResults.subjects.map((subject, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium">{subject.name}</TableCell>
-                            <TableCell className="text-center">{subject.score}/100</TableCell>
-                            <TableCell className="text-center">
-                              <Badge variant={subject.score >= 80 ? "default" : subject.score >= 60 ? "secondary" : "destructive"}>
-                                {subject.score >= 80 ? "A" : subject.score >= 60 ? "B" : subject.score >= 40 ? "C" : "D"}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <h4 className="font-medium mb-2">Teacher's Remarks</h4>
-                    <p className="text-gray-700">{currentResults.remarks}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Results Not Available</h3>
-                  <p className="text-gray-600">
-                    Examination results for {selectedTerm} are not yet available. 
-                    Please check back later.
+                  <p className="text-sm text-gray-600 mt-2">
+                    Contact the school bursar for payment arrangements or to update your payment status.
                   </p>
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
