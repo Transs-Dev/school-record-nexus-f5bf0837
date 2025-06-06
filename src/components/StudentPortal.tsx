@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogIn, User, GraduationCap, DollarSign, BookOpen, Award, Loader2 } from "lucide-react";
+import { LogIn, User, GraduationCap, DollarSign, BookOpen, Award, Loader2, Printer, Download } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { 
   fetchAllStudents, 
@@ -18,6 +18,8 @@ import {
   type Student,
   type ExaminationMark 
 } from "@/utils/studentDatabase";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 const StudentPortal = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -27,6 +29,7 @@ const StudentPortal = () => {
   const [studentData, setStudentData] = useState<Student | null>(null);
   const [examResults, setExamResults] = useState<Record<string, ExaminationMark | null>>({});
   const [studentPosition, setStudentPosition] = useState<Record<string, number>>({});
+  const reportRef = useRef<HTMLDivElement>(null);
 
   const terms = ["Term 1", "Term 2", "Term 3"];
   const currentYear = new Date().getFullYear().toString();
@@ -168,6 +171,168 @@ const StudentPortal = () => {
       total: baseAmount,
       percentage: Math.round((paid / baseAmount) * 100)
     };
+  };
+
+  // Function to print results
+  const handlePrintResults = () => {
+    if (!reportRef.current) return;
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast({
+        title: "Print Error",
+        description: "Unable to open print window. Please check your browser settings.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const studentName = studentData?.student_name || "Student";
+    const regNumber = studentData?.registration_number || "";
+    const totalMarks = examResults[selectedTerm]?.total_marks || 0;
+    const percentage = calculatePercentage(totalMarks);
+    const position = studentPosition[selectedTerm] || 0;
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Academic Report - ${studentName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .logo { font-size: 24px; font-weight: bold; color: #2563eb; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f5f5f5; font-weight: bold; }
+          .student-info { margin-bottom: 20px; }
+          .student-info p { margin: 5px 0; }
+          .print-date { text-align: right; margin-top: 20px; font-size: 12px; }
+          .result-summary { display: flex; justify-content: space-between; margin: 20px 0; }
+          .result-box { padding: 10px; background-color: #f5f5f5; border-radius: 5px; width: 30%; text-align: center; }
+          .result-box p:first-child { margin-top: 0; font-weight: bold; }
+          .result-box p:last-child { margin-bottom: 0; font-size: 20px; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo">RONGA SECONDARY SCHOOL (RSS)</div>
+          <h2>Student Academic Report</h2>
+          <h3>${selectedTerm} - ${currentYear}</h3>
+        </div>
+        
+        <div class="student-info">
+          <p><strong>Student Name:</strong> ${studentName}</p>
+          <p><strong>Registration Number:</strong> ${regNumber}</p>
+          <p><strong>Class:</strong> ${studentData?.grade || ""}</p>
+        </div>
+        
+        <div class="result-summary">
+          <div class="result-box">
+            <p>Total Marks</p>
+            <p>${totalMarks}/600</p>
+          </div>
+          <div class="result-box">
+            <p>Percentage</p>
+            <p>${percentage}%</p>
+          </div>
+          <div class="result-box">
+            <p>Position</p>
+            <p>${position > 0 ? '#' + position : 'N/A'}</p>
+          </div>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Subject</th>
+              <th>Score</th>
+              <th>Grade</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${subjects.map(subject => {
+              const score = examResults[selectedTerm]?.[subject.key as keyof ExaminationMark] as number || 0;
+              return `
+                <tr>
+                  <td>${subject.label}</td>
+                  <td>${score}/100</td>
+                  <td>${getGrade(score)}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+        
+        ${examResults[selectedTerm]?.remarks ? `
+          <div style="margin-top: 20px; padding: 10px; background-color: #f9f9f9; border-left: 4px solid #2563eb;">
+            <h4 style="margin-top: 0;">Teacher's Remarks</h4>
+            <p>${examResults[selectedTerm]?.remarks}</p>
+          </div>
+        ` : ''}
+        
+        <div class="print-date">
+          <p>Generated on: ${new Date().toLocaleDateString()}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    
+    // Wait for content to load before printing
+    printWindow.onload = () => {
+      printWindow.print();
+    };
+  };
+
+  // Function to download results as PDF
+  const handleDownloadPDF = async () => {
+    if (!reportRef.current || !studentData) return;
+
+    try {
+      setLoading(true);
+      
+      const element = reportRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        logging: false,
+        useCORS: true
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      const imgY = 30;
+      
+      pdf.setFontSize(18);
+      pdf.text('RONGA SECONDARY SCHOOL', pdfWidth / 2, 10, { align: 'center' });
+      pdf.setFontSize(14);
+      pdf.text('Academic Report', pdfWidth / 2, 20, { align: 'center' });
+      
+      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      pdf.save(`${studentData.student_name}_${selectedTerm}_${currentYear}.pdf`);
+      
+      toast({
+        title: "Success",
+        description: "Report downloaded successfully",
+      });
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast({
+        title: "Download Failed",
+        description: "There was an error generating the PDF",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!isLoggedIn) {
@@ -376,15 +541,41 @@ const StudentPortal = () => {
 
         <TabsContent value="results">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center space-x-2">
                 <Award className="w-5 h-5" />
                 <span>Examination Results - {selectedTerm}</span>
               </CardTitle>
+              <div className="flex space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center space-x-1"
+                  onClick={handlePrintResults}
+                  disabled={!currentExamResult?.total_marks}
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center space-x-1"
+                  onClick={handleDownloadPDF}
+                  disabled={loading || !currentExamResult?.total_marks}
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  <span>Download PDF</span>
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {currentExamResult && currentExamResult.total_marks && currentExamResult.total_marks > 0 ? (
-                <div className="space-y-6">
+                <div className="space-y-6" ref={reportRef}>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                       <p className="text-sm text-blue-600 font-medium">Total Marks</p>

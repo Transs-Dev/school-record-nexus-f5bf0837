@@ -9,6 +9,7 @@ import StudentEnrollment from "@/components/StudentEnrollment";
 import StudentRecords from "@/components/StudentRecords";
 import AcademicSection from "@/components/AcademicSection";
 import StudentPortal from "@/components/StudentPortal";
+import FeeManagement from "@/components/FeeManagement";
 import { getStudentStats } from "@/utils/studentDatabase";
 
 const Index = () => {
@@ -50,27 +51,6 @@ const Index = () => {
       change: `${studentStats.maleCount} Male, ${studentStats.femaleCount} Female`,
       icon: Users,
       color: "text-blue-600"
-    },
-    {
-      title: "Active Teachers",
-      value: "45",
-      change: "+3 new hires",
-      icon: GraduationCap,
-      color: "text-green-600"
-    },
-    {
-      title: "Fee Collection",
-      value: "85%",
-      change: "+5% from last term",
-      icon: DollarSign,
-      color: "text-yellow-600"
-    },
-    {
-      title: "Academic Progress",
-      value: "92%",
-      change: "Above target",
-      icon: BookOpen,
-      color: "text-purple-600"
     }
   ];
 
@@ -104,12 +84,13 @@ const Index = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:grid-cols-5 bg-white/80 backdrop-blur-sm shadow-lg">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:grid-cols-6 bg-white/80 backdrop-blur-sm shadow-lg">
             <TabsTrigger value="dashboard" className="transition-all duration-300 hover:scale-105">Dashboard</TabsTrigger>
             <TabsTrigger value="enrollment" className="transition-all duration-300 hover:scale-105">Enrollment</TabsTrigger>
             <TabsTrigger value="records" className="transition-all duration-300 hover:scale-105">Records</TabsTrigger>
             <TabsTrigger value="academic" className="transition-all duration-300 hover:scale-105">Academic</TabsTrigger>
             <TabsTrigger value="student-portal" className="transition-all duration-300 hover:scale-105">Student Portal</TabsTrigger>
+            <TabsTrigger value="fees" className="transition-all duration-300 hover:scale-105">Fee Management</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6 animate-fade-in">
@@ -119,7 +100,7 @@ const Index = () => {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-6">
               {stats.map((stat, index) => (
                 <Card 
                   key={index} 
@@ -196,6 +177,10 @@ const Index = () => {
 
           <TabsContent value="student-portal" className="animate-fade-in">
             <StudentPortal />
+          </TabsContent>
+
+          <TabsContent value="fees" className="animate-fade-in">
+            <FeeManagement />
           </TabsContent>
         </Tabs>
       </main>
