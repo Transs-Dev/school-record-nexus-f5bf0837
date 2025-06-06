@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface FeeConfiguration {
@@ -36,6 +35,12 @@ export interface FeePayment {
   verified_at?: string;
   created_at?: string;
   updated_at?: string;
+  students?: {
+    student_name: string;
+    registration_number: string;
+    grade: string;
+    primary_contact: string;
+  };
 }
 
 // Fee Configuration Functions
@@ -173,7 +178,7 @@ export const fetchFeePayments = async (filters?: {
     throw error;
   }
 
-  return data || [];
+  return data as FeePayment[];
 };
 
 export const verifyFeePayment = async (paymentId: string, status: 'Verified' | 'Rejected', verifiedBy?: string) => {
