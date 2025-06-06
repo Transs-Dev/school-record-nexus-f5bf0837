@@ -18,6 +18,12 @@ import {
   type Student,
   type ExaminationMark 
 } from "@/utils/studentDatabase";
+import {
+  fetchStudentFeeRecords,
+  fetchFeePayments,
+  type StudentFeeRecord,
+  type FeePayment
+} from "@/utils/feeDatabase";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
@@ -29,6 +35,8 @@ const StudentPortal = () => {
   const [studentData, setStudentData] = useState<Student | null>(null);
   const [examResults, setExamResults] = useState<Record<string, ExaminationMark | null>>({});
   const [studentPosition, setStudentPosition] = useState<Record<string, number>>({});
+  const [studentFeeRecords, setStudentFeeRecords] = useState<StudentFeeRecord[]>([]);
+  const [studentPayments, setStudentPayments] = useState<FeePayment[]>([]);
   const reportRef = useRef<HTMLDivElement>(null);
 
   const terms = ["Term 1", "Term 2", "Term 3"];
@@ -81,6 +89,9 @@ const StudentPortal = () => {
       
       // Load examination results for all terms
       await loadExaminationResults(foundStudent);
+      
+      // Load fee data
+      await loadFeeData(foundStudent);
 
       toast({
         title: "Login Successful!",
@@ -133,11 +144,27 @@ const StudentPortal = () => {
     setStudentPosition(positions);
   };
 
+  const loadFeeData = async (student: Student) => {
+    try {
+      const [feeRecords, payments] = await Promise.all([
+        fetchStudentFeeRecords(student.id),
+        fetchFeePayments({ studentId: student.id })
+      ]);
+
+      setStudentFeeRecords(feeRecords);
+      setStudentPayments(payments);
+    } catch (error) {
+      console.error("Error loading fee data:", error);
+    }
+  };
+
   const handleLogout = () => {
     setIsLoggedIn(false);
     setStudentData(null);
     setExamResults({});
     setStudentPosition({});
+    setStudentFeeRecords([]);
+    setStudentPayments([]);
     setLoginData({ registrationNumber: "", password: "" });
     toast({
       title: "Logged Out",
@@ -162,14 +189,26 @@ const StudentPortal = () => {
     return "destructive";
   };
 
-  // Mock fee data (can be replaced with real data from database later)
-  const getFeeData = (term: string) => {
-    const baseAmount = 20000;
-    const paid = Math.floor(Math.random() * baseAmount);
+  // Get fee data for the selected term
+  const getCurrentFeeData = () => {
+    const termRecord = studentFeeRecords.find(
+      record => record.term === selectedTerm && record.academic_year === currentYear
+    );
+
+    if (termRecord) {
+      return {
+        paid: termRecord.paid_amount || 0,
+        total: termRecord.required_amount || 0,
+        percentage: termRecord.payment_percentage || 0,
+        balance: termRecord.balance || 0
+      };
+    }
+
     return {
-      paid,
-      total: baseAmount,
-      percentage: Math.round((paid / baseAmount) * 100)
+      paid: 0,
+      total: 0,
+      percentage: 0,
+      balance: 0
     };
   };
 
@@ -401,7 +440,7 @@ const StudentPortal = () => {
 
   const currentExamResult = examResults[selectedTerm];
   const currentPosition = studentPosition[selectedTerm] || 0;
-  const currentFees = getFeeData(selectedTerm);
+  const currentFees = getCurrentFeeData();
 
   return (
     <div className="space-y-6">
@@ -463,7 +502,12 @@ const StudentPortal = () => {
                 </div>
               </div>
               <Progress value={currentFees.percentage} className="h-2" />
-              <p className="text-sm font-medium">{currentFees.percentage}% Paid</p>
+              <p className="text-sm font-medium">{currentFees.percentage.toFixed(1)}% Paid</p>
+              {currentFees.balance > 0 && (
+                <p className="text-sm text-orange-600">
+                  Balance: KES {currentFees.balance.toLocaleString()}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -669,7 +713,7 @@ const StudentPortal = () => {
                   <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
                     <p className="text-sm text-orange-600 font-medium">Outstanding Balance</p>
                     <p className="text-2xl font-bold text-orange-700">
-                      KES {(currentFees.total - currentFees.paid).toLocaleString()}
+                      KES {currentFees.balance.toLocaleString()}
                     </p>
                   </div>
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -685,9 +729,49 @@ const StudentPortal = () => {
                   <div className="mt-2">
                     <Progress value={currentFees.percentage} className="h-3" />
                     <p className="text-sm text-gray-600 mt-1">
-                      {currentFees.percentage}% of total fees paid
+                      {currentFees.percentage.toFixed(1)}% of total fees paid
                     </p>
                   </div>
+                </div>
+
+                {/* Payment History */}
+                <div>
+                  <h4 className="font-medium mb-3">Payment History</h4>
+                  {studentPayments.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Term</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Mode</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {studentPayments.map((payment) => (
+                          <TableRow key={payment.id}>
+                            <TableCell>{new Date(payment.created_at!).toLocaleDateString()}</TableCell>
+                            <TableCell>{payment.term}</TableCell>
+                            <TableCell>KES {payment.amount.toLocaleString()}</TableCell>
+                            <TableCell>{payment.payment_mode}</TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={
+                                  payment.verification_status === 'Verified' ? 'default' :
+                                  payment.verification_status === 'Rejected' ? 'destructive' : 'secondary'
+                                }
+                              >
+                                {payment.verification_status}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <p className="text-gray-600">No payment history found</p>
+                  )}
                 </div>
 
                 <div className="p-4 bg-gray-50 rounded-lg">

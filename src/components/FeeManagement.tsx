@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StudentFeeSubmission from "./StudentFeeSubmission";
+import FeeVerification from "./FeeVerification";
+import FeeConfiguration from "./FeeConfiguration";
 
 const FeeManagement = () => {
   const [activeTab, setActiveTab] = useState("submission");
@@ -27,9 +29,10 @@ const FeeManagement = () => {
             onValueChange={setActiveTab} 
             className="space-y-4"
           >
-            <TabsList className="grid grid-cols-2 w-[400px]">
+            <TabsList className="grid grid-cols-3 w-[600px]">
               <TabsTrigger value="submission">Fee Submission</TabsTrigger>
               <TabsTrigger value="verification">Fee Verification</TabsTrigger>
+              <TabsTrigger value="configuration">Fee Configuration</TabsTrigger>
             </TabsList>
             
             <TabsContent value="submission" className="space-y-4">
@@ -37,12 +40,11 @@ const FeeManagement = () => {
             </TabsContent>
             
             <TabsContent value="verification" className="space-y-4">
-              <div className="p-4 bg-blue-50 rounded-md">
-                <p className="text-blue-700">
-                  This section allows administrative staff to verify fee payments made by students.
-                  Contact the school bursar for access.
-                </p>
-              </div>
+              <FeeVerification />
+            </TabsContent>
+            
+            <TabsContent value="configuration" className="space-y-4">
+              <FeeConfiguration />
             </TabsContent>
           </Tabs>
         </CardContent>
