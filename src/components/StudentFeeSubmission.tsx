@@ -1,12 +1,12 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { CreditCard, Clock, CheckCircle, XCircle, Receipt } from "lucide-react";
+import { CreditCard, Clock, CheckCircle, XCircle, Receipt, Search, User } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { fetchAllStudents, type Student } from "@/utils/studentDatabase";
 import {
@@ -15,28 +15,25 @@ import {
   type StudentFeeRecord,
   fetchFeeConfigurations,
   submitFeePayment,
-  fetchFeePayments,
   fetchStudentFeeRecords
 } from "@/utils/feeDatabase";
 
 const StudentFeeSubmission = () => {
   const [students, setStudents] = useState<Student[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [feeConfigs, setFeeConfigs] = useState<FeeConfiguration[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [studentPayments, setStudentPayments] = useState<FeePayment[]>([]);
-  const [studentFeeRecords, setStudentFeeRecords] = useState<StudentFeeRecord[]>([]);
+  const [studentFeeRecord, setStudentFeeRecord] = useState<StudentFeeRecord | null>(null);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [paymentForm, setPaymentForm] = useState({
     term: "Term 1",
     academic_year: new Date().getFullYear().toString(),
-    amount: "",
-    payment_mode: "Mobile Money" as "Cash" | "Mobile Money" | "Bank",
-    transaction_code: ""
+    amount: ""
   });
 
   const terms = ["Term 1", "Term 2", "Term 3"];
-  const paymentModes = ["Cash", "Mobile Money", "Bank"];
 
   useEffect(() => {
     loadStudents();
@@ -44,10 +41,15 @@ const StudentFeeSubmission = () => {
   }, []);
 
   useEffect(() => {
+    filterStudents();
+  }, [students, searchQuery]);
+
+  useEffect(() => {
     if (selectedStudent) {
-      loadStudentData();
+      loadStudentFeeRecord();
+      updatePaymentAmount();
     }
-  }, [selectedStudent]);
+  }, [selectedStudent, paymentForm.term, paymentForm.academic_year]);
 
   const loadStudents = async () => {
     try {
@@ -67,20 +69,73 @@ const StudentFeeSubmission = () => {
     }
   };
 
-  const loadStudentData = async () => {
+  const loadStudentFeeRecord = async () => {
     if (!selectedStudent?.id) return;
 
     try {
-      const [paymentsData, feeRecordsData] = await Promise.all([
-        fetchFeePayments({ studentId: selectedStudent.id }),
-        fetchStudentFeeRecords(selectedStudent.id)
-      ]);
-
-      setStudentPayments(paymentsData);
-      setStudentFeeRecords(feeRecordsData);
+      const feeRecordsData = await fetchStudentFeeRecords(
+        selectedStudent.id,
+        paymentForm.term,
+        paymentForm.academic_year
+      );
+      
+      if (feeRecordsData.length > 0) {
+        setStudentFeeRecord(feeRecordsData[0]);
+      } else {
+        setStudentFeeRecord(null);
+      }
     } catch (error) {
-      console.error("Error loading student data:", error);
+      console.error("Error loading student fee record:", error);
     }
+  };
+
+  const filterStudents = () => {
+    let filtered = [...students];
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(student =>
+        student.student_name.toLowerCase().includes(query) ||
+        student.registration_number.toLowerCase().includes(query)
+      );
+    }
+    
+    // Sort by grade
+    filtered.sort((a, b) => {
+      const gradeA = a.grade.toLowerCase();
+      const gradeB = b.grade.toLowerCase();
+      return gradeA.localeCompare(gradeB);
+    });
+    
+    setFilteredStudents(filtered);
+  };
+
+  const updatePaymentAmount = () => {
+    const config = feeConfigs.find(
+      c => c.term === paymentForm.term && c.academic_year === paymentForm.academic_year
+    );
+    
+    if (config && studentFeeRecord) {
+      const balance = studentFeeRecord.required_amount - studentFeeRecord.paid_amount;
+      setPaymentForm(prev => ({ ...prev, amount: Math.max(0, balance).toString() }));
+    } else if (config) {
+      setPaymentForm(prev => ({ ...prev, amount: config.amount.toString() }));
+    }
+  };
+
+  const getCurrentFeeAmount = () => {
+    const config = feeConfigs.find(
+      c => c.term === paymentForm.term && c.academic_year === paymentForm.academic_year
+    );
+    return config?.amount || 0;
+  };
+
+  const getBalance = () => {
+    if (studentFeeRecord) {
+      return Math.max(0, studentFeeRecord.required_amount - studentFeeRecord.paid_amount);
+    }
+    return getCurrentFeeAmount();
   };
 
   const handleSubmitPayment = async (e: React.FormEvent) => {
@@ -94,34 +149,30 @@ const StudentFeeSubmission = () => {
         term: paymentForm.term,
         academic_year: paymentForm.academic_year,
         amount: parseFloat(paymentForm.amount),
-        payment_mode: paymentForm.payment_mode,
-        transaction_code: paymentForm.transaction_code || undefined,
-        verification_status: 'Pending' as const
+        payment_mode: 'Cash' as const,
+        verification_status: 'Verified' as const
       };
 
       await submitFeePayment(paymentData);
 
       toast({
         title: "Payment Submitted Successfully!",
-        description: "Your payment has been submitted for verification.",
+        description: `Payment of KES ${parseFloat(paymentForm.amount).toLocaleString()} has been recorded for ${selectedStudent.student_name}.`,
       });
 
-      // Reset form
+      // Reset form and reload data
       setPaymentForm({
         term: "Term 1",
         academic_year: new Date().getFullYear().toString(),
-        amount: "",
-        payment_mode: "Mobile Money",
-        transaction_code: ""
+        amount: ""
       });
-
-      // Reload student data
-      loadStudentData();
+      setSelectedStudent(null);
+      setStudentFeeRecord(null);
 
     } catch (error) {
       toast({
         title: "Submission Failed",
-        description: "There was an error submitting your payment. Please try again.",
+        description: "There was an error submitting the payment. Please try again.",
         variant: "destructive"
       });
       console.error("Error submitting payment:", error);
@@ -130,141 +181,110 @@ const StudentFeeSubmission = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'Verified':
-        return <Badge className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Verified</Badge>;
-      case 'Rejected':
-        return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" />Rejected</Badge>;
-      default:
-        return <Badge variant="secondary"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
-    }
-  };
-
-  const getCurrentFeeAmount = () => {
-    const config = feeConfigs.find(
-      c => c.term === paymentForm.term && c.academic_year === paymentForm.academic_year
-    );
-    return config?.amount || 0;
-  };
-
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Student Fee Submission</h2>
-        <p className="text-gray-600">Submit and track fee payments for students</p>
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">Submit Fee Payment</h2>
+        <p className="text-gray-600">Submit a new fee payment for verification</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Payment Submission Form */}
+        {/* Student Selection */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <User className="w-5 h-5" />
+              <span>Select Student</span>
+            </CardTitle>
+            <CardDescription>
+              Search and select a student to submit payment for
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Search */}
+              <div className="space-y-2">
+                <Label htmlFor="search">Search Students</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    id="search"
+                    placeholder="Search by name or registration number"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              {/* Student List */}
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {filteredStudents.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-600">No students found</p>
+                  </div>
+                ) : (
+                  filteredStudents.map((student) => (
+                    <div
+                      key={student.id}
+                      onClick={() => setSelectedStudent(student)}
+                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                        selectedStudent?.id === student.id
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium">{student.student_name}</p>
+                          <p className="text-sm text-gray-600">{student.registration_number}</p>
+                        </div>
+                        <Badge variant="outline">{student.grade}</Badge>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Payment Form */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <CreditCard className="w-5 h-5" />
-              <span>Submit Fee Payment</span>
+              <span>Payment Details</span>
             </CardTitle>
             <CardDescription>
-              Submit a new fee payment for verification
+              {selectedStudent ? `Submit payment for ${selectedStudent.student_name}` : "Select a student to continue"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmitPayment} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="student">Select Student *</Label>
-                <Select 
-                  value={selectedStudent?.id || ""} 
-                  onValueChange={(value) => {
-                    const student = students.find(s => s.id === value);
-                    setSelectedStudent(student || null);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a student" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {students.map((student) => (
-                      <SelectItem key={student.id} value={student.id!}>
-                        {student.student_name} ({student.registration_number})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {selectedStudent ? (
+              <form onSubmit={handleSubmitPayment} className="space-y-4">
+                {/* Student Information */}
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-600 font-medium">Student Information</p>
+                  <p className="text-sm font-medium">{selectedStudent.student_name}</p>
+                  <p className="text-sm text-gray-600">Grade: {selectedStudent.grade}</p>
+                  <p className="text-sm text-gray-600">Registration: {selectedStudent.registration_number}</p>
+                  <p className="text-sm text-gray-600">Parent: {selectedStudent.parent_name}</p>
+                  <p className="text-sm text-gray-600">Contact: {selectedStudent.primary_contact}</p>
+                </div>
 
-              {selectedStudent && (
-                <>
-                  <div className="p-3 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-blue-600 font-medium">Student Information</p>
-                    <p className="text-sm">{selectedStudent.student_name}</p>
-                    <p className="text-sm text-gray-600">Grade: {selectedStudent.grade}</p>
-                    <p className="text-sm text-gray-600">Registration: {selectedStudent.registration_number}</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="term">Term *</Label>
-                      <Select value={paymentForm.term} onValueChange={(value) => setPaymentForm(prev => ({ ...prev, term: value }))}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {terms.map((term) => (
-                            <SelectItem key={term} value={term}>
-                              {term}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="academic_year">Academic Year *</Label>
-                      <Select value={paymentForm.academic_year} onValueChange={(value) => setPaymentForm(prev => ({ ...prev, academic_year: value }))}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[2024, 2025, 2026].map((year) => (
-                            <SelectItem key={year} value={year.toString()}>
-                              {year}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {getCurrentFeeAmount() > 0 && (
-                    <div className="p-3 bg-green-50 rounded-lg">
-                      <p className="text-sm text-green-600 font-medium">Required Fee Amount</p>
-                      <p className="text-lg font-bold text-green-700">
-                        KES {getCurrentFeeAmount().toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-
+                {/* Term Selection */}
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="amount">Payment Amount (KES) *</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      placeholder="Enter amount paid"
-                      value={paymentForm.amount}
-                      onChange={(e) => setPaymentForm(prev => ({ ...prev, amount: e.target.value }))}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="payment_mode">Payment Mode *</Label>
-                    <Select value={paymentForm.payment_mode} onValueChange={(value) => setPaymentForm(prev => ({ ...prev, payment_mode: value as any }))}>
+                    <Label htmlFor="term">Term *</Label>
+                    <Select value={paymentForm.term} onValueChange={(value) => setPaymentForm(prev => ({ ...prev, term: value }))}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {paymentModes.map((mode) => (
-                          <SelectItem key={mode} value={mode}>
-                            {mode}
+                        {terms.map((term) => (
+                          <SelectItem key={term} value={term}>
+                            {term}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -272,106 +292,81 @@ const StudentFeeSubmission = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="transaction_code">Transaction Code</Label>
-                    <Input
-                      id="transaction_code"
-                      placeholder="Enter transaction/reference code"
-                      value={paymentForm.transaction_code}
-                      onChange={(e) => setPaymentForm(prev => ({ ...prev, transaction_code: e.target.value }))}
-                    />
+                    <Label htmlFor="academic_year">Academic Year *</Label>
+                    <Select value={paymentForm.academic_year} onValueChange={(value) => setPaymentForm(prev => ({ ...prev, academic_year: value }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[2024, 2025, 2026].map((year) => (
+                          <SelectItem key={year} value={year.toString()}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? (
-                      <>
-                        <Clock className="w-4 h-4 mr-2 animate-spin" />
-                        Submitting...
-                      </>
-                    ) : (
-                      <>
-                        <Receipt className="w-4 h-4 mr-2" />
-                        Submit Payment
-                      </>
-                    )}
-                  </Button>
-                </>
-              )}
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Student Payment History */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Payment History</CardTitle>
-            <CardDescription>
-              {selectedStudent ? `Payment history for ${selectedStudent.student_name}` : "Select a student to view payment history"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {selectedStudent ? (
-              <div className="space-y-4">
-                {/* Fee Summary */}
-                {studentFeeRecords.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Fee Summary</h4>
-                    {studentFeeRecords.map((record: any) => (
-                      <div key={`${record.term}-${record.academic_year}`} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <p className="font-medium">{record.term} {record.academic_year}</p>
-                          <p className="text-sm text-gray-600">
-                            {record.payment_percentage?.toFixed(1)}% paid
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm text-green-600">
-                            KES {record.paid_amount?.toLocaleString() || 0}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            / {record.required_amount?.toLocaleString() || 0}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Payment History Table */}
-                <div>
-                  <h4 className="font-medium mb-2">Recent Payments</h4>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Term</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Mode</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {studentPayments.map((payment) => (
-                        <TableRow key={payment.id}>
-                          <TableCell>{payment.term}</TableCell>
-                          <TableCell>KES {payment.amount.toLocaleString()}</TableCell>
-                          <TableCell>{payment.payment_mode}</TableCell>
-                          <TableCell>{getStatusBadge(payment.verification_status)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-
-                  {studentPayments.length === 0 && (
-                    <div className="text-center py-4">
-                      <p className="text-gray-600">No payment history found</p>
-                    </div>
-                  )}
                 </div>
-              </div>
+
+                {/* Fee Information */}
+                <div className="space-y-3">
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <p className="text-sm text-green-600 font-medium">Fee Information</p>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Required Amount:</span>
+                      <span className="font-medium">KES {getCurrentFeeAmount().toLocaleString()}</span>
+                    </div>
+                    {studentFeeRecord && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Already Paid:</span>
+                        <span className="font-medium">KES {studentFeeRecord.paid_amount.toLocaleString()}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center border-t pt-2 mt-2">
+                      <span className="text-sm font-medium">Balance:</span>
+                      <span className="font-bold text-green-700">KES {getBalance().toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Amount */}
+                <div className="space-y-2">
+                  <Label htmlFor="amount">Payment Amount (KES) *</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    placeholder="Enter amount to pay"
+                    value={paymentForm.amount}
+                    onChange={(e) => setPaymentForm(prev => ({ ...prev, amount: e.target.value }))}
+                    required
+                    min="0"
+                    max={getBalance()}
+                    step="0.01"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Maximum payable amount: KES {getBalance().toLocaleString()}
+                  </p>
+                </div>
+
+                <Button type="submit" className="w-full" disabled={loading || !paymentForm.amount}>
+                  {loading ? (
+                    <>
+                      <Clock className="w-4 h-4 mr-2 animate-spin" />
+                      Processing Payment...
+                    </>
+                  ) : (
+                    <>
+                      <Receipt className="w-4 h-4 mr-2" />
+                      Submit Payment
+                    </>
+                  )}
+                </Button>
+              </form>
             ) : (
               <div className="text-center py-8">
                 <CreditCard className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Student</h3>
-                <p className="text-gray-600">Choose a student from the dropdown to view their payment history and submit new payments.</p>
+                <p className="text-gray-600">Choose a student from the list to submit a payment.</p>
               </div>
             )}
           </CardContent>
