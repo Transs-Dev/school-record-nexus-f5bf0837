@@ -1,4 +1,5 @@
 
+
 import { supabase } from "@/integrations/supabase/client";
 
 export interface FeeConfiguration {
@@ -142,9 +143,16 @@ export const fetchStudentFeeRecords = async (studentId?: string, term?: string, 
 };
 
 export const createStudentFeeRecord = async (record: Omit<StudentFeeRecord, 'id' | 'created_at' | 'updated_at' | 'balance' | 'payment_percentage'>) => {
+  // Only include the basic fields, let the database handle computed columns
   const { data, error } = await supabase
     .from('student_fee_records')
-    .insert(record)
+    .insert({
+      student_id: record.student_id,
+      term: record.term,
+      academic_year: record.academic_year,
+      required_amount: record.required_amount,
+      paid_amount: record.paid_amount
+    })
     .select()
     .single();
 
@@ -158,9 +166,20 @@ export const createStudentFeeRecord = async (record: Omit<StudentFeeRecord, 'id'
 
 // Fee Payments Functions
 export const submitFeePayment = async (payment: Omit<FeePayment, 'id' | 'created_at' | 'updated_at'>) => {
+  // Only include the basic payment fields
   const { data, error } = await supabase
     .from('fee_payments')
-    .insert(payment)
+    .insert({
+      student_id: payment.student_id,
+      term: payment.term,
+      academic_year: payment.academic_year,
+      amount: payment.amount,
+      payment_mode: payment.payment_mode,
+      verification_status: payment.verification_status,
+      transaction_code: payment.transaction_code,
+      verified_by: payment.verified_by,
+      verified_at: payment.verified_at
+    })
     .select()
     .single();
 
@@ -276,3 +295,4 @@ export const getFeeAnalytics = async (academicYear?: string) => {
     pendingPayments: payments?.filter(p => p.verification_status === 'Pending').length || 0
   };
 };
+

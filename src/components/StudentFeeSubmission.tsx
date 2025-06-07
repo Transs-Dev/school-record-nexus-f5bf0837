@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -189,6 +190,9 @@ const StudentFeeSubmission = () => {
       });
       setSelectedStudent(null);
       setStudentFeeRecord(null);
+
+      // Reload the student fee records to reflect the new payment
+      await loadStudents();
 
     } catch (error) {
       console.error("Error submitting payment:", error);
@@ -415,3 +419,4 @@ const StudentFeeSubmission = () => {
 };
 
 export default StudentFeeSubmission;
+
