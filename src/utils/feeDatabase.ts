@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export interface FeeConfiguration {
@@ -60,20 +61,51 @@ export const fetchFeeConfigurations = async (): Promise<FeeConfiguration[]> => {
 };
 
 export const saveFeeConfiguration = async (config: Omit<FeeConfiguration, 'id' | 'created_at' | 'updated_at'>) => {
-  const { data, error } = await supabase
+  // First try to check if a configuration with the same term and year exists
+  const { data: existingConfig } = await supabase
     .from('fee_configuration')
-    .upsert(config, {
-      onConflict: 'term,academic_year'
-    })
-    .select()
+    .select('id')
+    .eq('term', config.term)
+    .eq('academic_year', config.academic_year)
     .single();
 
-  if (error) {
-    console.error('Error saving fee configuration:', error);
-    throw error;
-  }
+  if (existingConfig) {
+    // Update existing configuration
+    const { data, error } = await supabase
+      .from('fee_configuration')
+      .update({
+        amount: config.amount,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', existingConfig.id)
+      .select()
+      .single();
 
-  return data;
+    if (error) {
+      console.error('Error updating fee configuration:', error);
+      throw error;
+    }
+
+    return data;
+  } else {
+    // Insert new configuration
+    const { data, error } = await supabase
+      .from('fee_configuration')
+      .insert({
+        term: config.term,
+        academic_year: config.academic_year,
+        amount: config.amount
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error inserting fee configuration:', error);
+      throw error;
+    }
+
+    return data;
+  }
 };
 
 // Student Fee Records Functions
