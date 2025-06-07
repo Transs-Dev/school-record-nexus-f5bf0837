@@ -59,15 +59,17 @@ const FeeConfiguration = () => {
 
     try {
       setLoading(true);
-      await saveFeeConfiguration({
+      const result = await saveFeeConfiguration({
         term: formData.term,
         academic_year: formData.academic_year,
         amount: parseFloat(formData.amount)
       });
 
+      console.log("Fee configuration saved:", result);
+
       toast({
         title: "Fee Configuration Saved",
-        description: Fee for ${formData.term} ${formData.academic_year} has been set to KES ${parseFloat(formData.amount).toLocaleString()},
+        description: `Fee for ${formData.term} ${formData.academic_year} has been set to KES ${parseFloat(formData.amount).toLocaleString()}`,
       });
 
       // Reset form
@@ -79,12 +81,12 @@ const FeeConfiguration = () => {
       setEditingConfig(null);
 
       // Reload configurations
-      loadFeeConfigurations();
+      await loadFeeConfigurations();
     } catch (error) {
       console.error("Error saving fee configuration:", error);
       toast({
         title: "Save Failed",
-        description: "Failed to save fee configuration",
+        description: "Failed to save fee configuration. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -238,7 +240,7 @@ const FeeConfiguration = () => {
                 </TableHeader>
                 <TableBody>
                   {feeConfigs.map((config) => (
-                    <TableRow key={${config.term}-${config.academic_year}}>
+                    <TableRow key={`${config.term}-${config.academic_year}`}>
                       <TableCell className="font-medium">{config.term}</TableCell>
                       <TableCell>{config.academic_year}</TableCell>
                       <TableCell>KES {config.amount.toLocaleString()}</TableCell>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,10 +29,12 @@ const StudentFeeSubmission = () => {
   const [paymentForm, setPaymentForm] = useState({
     term: "Term 1",
     academic_year: new Date().getFullYear().toString(),
-    amount: ""
+    amount: "",
+    payment_mode: "Cash"
   });
 
   const terms = ["Term 1", "Term 2", "Term 3"];
+  const paymentModes = ["Cash", "Mobile Money", "Bank"];
 
   useEffect(() => {
     loadStudents();
@@ -140,7 +141,24 @@ const StudentFeeSubmission = () => {
 
   const handleSubmitPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedStudent?.id || !paymentForm.amount) return;
+    if (!selectedStudent?.id || !paymentForm.amount) {
+      toast({
+        title: "Missing Information",
+        description: "Please select a student and enter a payment amount",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const paymentAmount = parseFloat(paymentForm.amount);
+    if (paymentAmount <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid payment amount",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -148,34 +166,37 @@ const StudentFeeSubmission = () => {
         student_id: selectedStudent.id,
         term: paymentForm.term,
         academic_year: paymentForm.academic_year,
-        amount: parseFloat(paymentForm.amount),
-        payment_mode: 'Cash' as const,
+        amount: paymentAmount,
+        payment_mode: paymentForm.payment_mode as 'Cash' | 'Mobile Money' | 'Bank',
         verification_status: 'Verified' as const
       };
 
-      await submitFeePayment(paymentData);
+      console.log("Submitting payment:", paymentData);
+      const result = await submitFeePayment(paymentData);
+      console.log("Payment submitted successfully:", result);
 
       toast({
         title: "Payment Submitted Successfully!",
-        description: `Payment of KES ${parseFloat(paymentForm.amount).toLocaleString()} has been recorded for ${selectedStudent.student_name}.`,
+        description: `Payment of KES ${paymentAmount.toLocaleString()} has been recorded for ${selectedStudent.student_name}.`,
       });
 
       // Reset form and reload data
       setPaymentForm({
         term: "Term 1",
         academic_year: new Date().getFullYear().toString(),
-        amount: ""
+        amount: "",
+        payment_mode: "Cash"
       });
       setSelectedStudent(null);
       setStudentFeeRecord(null);
 
     } catch (error) {
+      console.error("Error submitting payment:", error);
       toast({
         title: "Submission Failed",
         description: "There was an error submitting the payment. Please try again.",
         variant: "destructive"
       });
-      console.error("Error submitting payment:", error);
     } finally {
       setLoading(false);
     }
@@ -306,6 +327,23 @@ const StudentFeeSubmission = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {/* Payment Mode */}
+                <div className="space-y-2">
+                  <Label htmlFor="payment_mode">Payment Mode *</Label>
+                  <Select value={paymentForm.payment_mode} onValueChange={(value) => setPaymentForm(prev => ({ ...prev, payment_mode: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentModes.map((mode) => (
+                        <SelectItem key={mode} value={mode}>
+                          {mode}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Fee Information */}
