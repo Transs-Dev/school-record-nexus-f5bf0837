@@ -151,6 +151,27 @@ export type Database = {
           },
         ]
       }
+      pin_settings: {
+        Row: {
+          created_at: string
+          id: string
+          pin_hash: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pin_hash: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pin_hash?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       student_fee_records: {
         Row: {
           academic_year: string
@@ -242,6 +263,33 @@ export type Database = {
           primary_contact?: string
           registration_number?: string
           student_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      subjects: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+          label: string
+          max_marks: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+          label: string
+          max_marks?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+          label?: string
+          max_marks?: number
           updated_at?: string
         }
         Relationships: []

@@ -1,36 +1,58 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Plus, Edit, Trash2, Save } from "lucide-react";
+import { BookOpen, Plus, Edit, Trash2, Save, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Subject {
   id: string;
   key: string;
   label: string;
-  maxMarks: number;
+  max_marks: number;
 }
 
 const SubjectManagement = () => {
-  const [subjects, setSubjects] = useState<Subject[]>([
-    { id: "1", key: "mathematics", label: "Mathematics", maxMarks: 100 },
-    { id: "2", key: "english", label: "English", maxMarks: 100 },
-    { id: "3", key: "kiswahili", label: "Kiswahili", maxMarks: 100 },
-    { id: "4", key: "science", label: "Science", maxMarks: 100 },
-    { id: "5", key: "social_studies", label: "Social Studies", maxMarks: 100 },
-    { id: "6", key: "ire_cre", label: "IRE/CRE", maxMarks: 100 }
-  ]);
-  
-  const [newSubject, setNewSubject] = useState({ key: "", label: "", maxMarks: 100 });
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [newSubject, setNewSubject] = useState({ key: "", label: "", max_marks: 100 });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleAddSubject = () => {
+  useEffect(() => {
+    fetchSubjects();
+  }, []);
+
+  const fetchSubjects = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('subjects')
+        .select('*')
+        .order('label');
+
+      if (error) throw error;
+
+      setSubjects(data || []);
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+      toast({
+        title: "Error Loading Subjects",
+        description: "Failed to load subjects from database. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddSubject = async () => {
     if (!newSubject.key || !newSubject.label) {
       toast({
         title: "Validation Error",
@@ -50,20 +72,37 @@ const SubjectManagement = () => {
       return;
     }
 
-    const subject: Subject = {
-      id: Date.now().toString(),
-      key: newSubject.key.toLowerCase().replace(/\s+/g, '_'),
-      label: newSubject.label,
-      maxMarks: newSubject.maxMarks
-    };
+    try {
+      setSubmitting(true);
+      const { data, error } = await supabase
+        .from('subjects')
+        .insert([{
+          key: newSubject.key.toLowerCase().replace(/\s+/g, '_'),
+          label: newSubject.label,
+          max_marks: newSubject.max_marks
+        }])
+        .select()
+        .single();
 
-    setSubjects([...subjects, subject]);
-    setNewSubject({ key: "", label: "", maxMarks: 100 });
-    
-    toast({
-      title: "Subject Added",
-      description: `${subject.label} has been added successfully.`,
-    });
+      if (error) throw error;
+
+      setSubjects([...subjects, data]);
+      setNewSubject({ key: "", label: "", max_marks: 100 });
+      
+      toast({
+        title: "Subject Added",
+        description: `${data.label} has been added successfully.`,
+      });
+    } catch (error) {
+      console.error('Error adding subject:', error);
+      toast({
+        title: "Error Adding Subject",
+        description: "Failed to add subject to database. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleEditSubject = (subject: Subject) => {
@@ -71,33 +110,77 @@ const SubjectManagement = () => {
     setEditingSubject({ ...subject });
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingSubject) return;
 
-    const updatedSubjects = subjects.map(subject => 
-      subject.id === editingId ? editingSubject : subject
-    );
-    
-    setSubjects(updatedSubjects);
-    setEditingId(null);
-    setEditingSubject(null);
-    
-    toast({
-      title: "Subject Updated",
-      description: `${editingSubject.label} has been updated successfully.`,
-    });
+    try {
+      setSubmitting(true);
+      const { data, error } = await supabase
+        .from('subjects')
+        .update({
+          key: editingSubject.key,
+          label: editingSubject.label,
+          max_marks: editingSubject.max_marks
+        })
+        .eq('id', editingId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const updatedSubjects = subjects.map(subject => 
+        subject.id === editingId ? data : subject
+      );
+      
+      setSubjects(updatedSubjects);
+      setEditingId(null);
+      setEditingSubject(null);
+      
+      toast({
+        title: "Subject Updated",
+        description: `${data.label} has been updated successfully.`,
+      });
+    } catch (error) {
+      console.error('Error updating subject:', error);
+      toast({
+        title: "Error Updating Subject",
+        description: "Failed to update subject in database. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleDeleteSubject = (subjectId: string) => {
+  const handleDeleteSubject = async (subjectId: string) => {
     const subject = subjects.find(s => s.id === subjectId);
     if (!subject) return;
 
-    setSubjects(subjects.filter(s => s.id !== subjectId));
-    
-    toast({
-      title: "Subject Deleted",
-      description: `${subject.label} has been removed from the system.`,
-    });
+    try {
+      setSubmitting(true);
+      const { error } = await supabase
+        .from('subjects')
+        .delete()
+        .eq('id', subjectId);
+
+      if (error) throw error;
+
+      setSubjects(subjects.filter(s => s.id !== subjectId));
+      
+      toast({
+        title: "Subject Deleted",
+        description: `${subject.label} has been removed from the system.`,
+      });
+    } catch (error) {
+      console.error('Error deleting subject:', error);
+      toast({
+        title: "Error Deleting Subject",
+        description: "Failed to delete subject from database. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const cancelEdit = () => {
@@ -106,8 +189,25 @@ const SubjectManagement = () => {
   };
 
   const getTotalMaxMarks = () => {
-    return subjects.reduce((total, subject) => total + subject.maxMarks, 0);
+    return subjects.reduce((total, subject) => total + subject.max_marks, 0);
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Subject Management</h2>
+          <p className="text-gray-600">Add, edit, and manage subjects for examination grading</p>
+        </div>
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin mr-2" />
+            <span>Loading subjects...</span>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -136,6 +236,7 @@ const SubjectManagement = () => {
                 placeholder="e.g., chemistry"
                 value={newSubject.key}
                 onChange={(e) => setNewSubject(prev => ({ ...prev, key: e.target.value }))}
+                disabled={submitting}
               />
             </div>
             <div className="space-y-2">
@@ -145,6 +246,7 @@ const SubjectManagement = () => {
                 placeholder="e.g., Chemistry"
                 value={newSubject.label}
                 onChange={(e) => setNewSubject(prev => ({ ...prev, label: e.target.value }))}
+                disabled={submitting}
               />
             </div>
             <div className="space-y-2">
@@ -154,15 +256,25 @@ const SubjectManagement = () => {
                 type="number"
                 min="1"
                 max="200"
-                value={newSubject.maxMarks}
-                onChange={(e) => setNewSubject(prev => ({ ...prev, maxMarks: parseInt(e.target.value) || 100 }))}
+                value={newSubject.max_marks}
+                onChange={(e) => setNewSubject(prev => ({ ...prev, max_marks: parseInt(e.target.value) || 100 }))}
+                disabled={submitting}
               />
             </div>
           </div>
           <div className="flex justify-end mt-4">
-            <Button onClick={handleAddSubject}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Subject
+            <Button onClick={handleAddSubject} disabled={submitting}>
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Subject
+                </>
+              )}
             </Button>
           </div>
         </CardContent>
@@ -204,6 +316,7 @@ const SubjectManagement = () => {
                           value={editingSubject?.key || ""}
                           onChange={(e) => setEditingSubject(prev => prev ? { ...prev, key: e.target.value } : null)}
                           className="font-mono text-sm"
+                          disabled={submitting}
                         />
                       ) : (
                         <span className="font-mono text-sm">{subject.key}</span>
@@ -215,6 +328,7 @@ const SubjectManagement = () => {
                           value={editingSubject?.label || ""}
                           onChange={(e) => setEditingSubject(prev => prev ? { ...prev, label: e.target.value } : null)}
                           className="font-medium"
+                          disabled={submitting}
                         />
                       ) : (
                         <span className="font-medium">{subject.label}</span>
@@ -226,12 +340,13 @@ const SubjectManagement = () => {
                           type="number"
                           min="1"
                           max="200"
-                          value={editingSubject?.maxMarks || 100}
-                          onChange={(e) => setEditingSubject(prev => prev ? { ...prev, maxMarks: parseInt(e.target.value) || 100 } : null)}
+                          value={editingSubject?.max_marks || 100}
+                          onChange={(e) => setEditingSubject(prev => prev ? { ...prev, max_marks: parseInt(e.target.value) || 100 } : null)}
                           className="w-20 mx-auto text-center"
+                          disabled={submitting}
                         />
                       ) : (
-                        <Badge variant="outline">{subject.maxMarks}</Badge>
+                        <Badge variant="outline">{subject.max_marks}</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-center">
@@ -242,14 +357,20 @@ const SubjectManagement = () => {
                               size="sm"
                               onClick={handleSaveEdit}
                               className="h-8 w-8 p-0"
+                              disabled={submitting}
                             >
-                              <Save className="w-4 h-4" />
+                              {submitting ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Save className="w-4 h-4" />
+                              )}
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={cancelEdit}
                               className="h-8 w-8 p-0"
+                              disabled={submitting}
                             >
                               <span className="sr-only">Cancel</span>
                               ×
@@ -262,6 +383,7 @@ const SubjectManagement = () => {
                               variant="outline"
                               onClick={() => handleEditSubject(subject)}
                               className="h-8 w-8 p-0"
+                              disabled={submitting}
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -270,6 +392,7 @@ const SubjectManagement = () => {
                               variant="destructive"
                               onClick={() => handleDeleteSubject(subject.id)}
                               className="h-8 w-8 p-0"
+                              disabled={submitting}
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -296,8 +419,8 @@ const SubjectManagement = () => {
       <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
         <h4 className="font-medium text-yellow-800 mb-2">Important Note</h4>
         <p className="text-sm text-yellow-700">
-          Changes to subjects will affect all examination records. Ensure you update existing examination marks 
-          when modifying subjects to maintain data consistency across the system.
+          Changes to subjects will affect all examination records. The subjects are now persisted in the database 
+          and will be automatically reflected in the marks entry section.
         </p>
       </div>
     </div>

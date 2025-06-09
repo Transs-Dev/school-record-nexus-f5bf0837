@@ -3,290 +3,289 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Users, GraduationCap, FileText, DollarSign, BookOpen, UserCheck, Loader, Menu, X, HelpCircle } from "lucide-react";
+import { 
+  Users, 
+  BookOpen, 
+  TrendingUp, 
+  DollarSign, 
+  UserPlus, 
+  FileText,
+  RotateCcw,
+  Key,
+  Play
+} from "lucide-react";
 import StudentEnrollment from "@/components/StudentEnrollment";
 import StudentRecords from "@/components/StudentRecords";
 import AcademicSection from "@/components/AcademicSection";
-import StudentPortal from "@/components/StudentPortal";
 import FeeManagement from "@/components/FeeManagement";
+import SubjectManagement from "@/components/SubjectManagement";
+import SystemReset from "@/components/SystemReset";
+import ResultsSection from "@/components/ResultsSection";
+import PinProtection from "@/components/PinProtection";
+import ChangePinDialog from "@/components/ChangePinDialog";
 import TourGuide from "@/components/TourGuide";
-import { getStudentStats } from "@/utils/studentDatabase";
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState("dashboard");
-  const [studentStats, setStudentStats] = useState({
-    total: 0,
-    maleCount: 0,
-    femaleCount: 0
-  });
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
   const [showTour, setShowTour] = useState(false);
 
   useEffect(() => {
-    loadStudentStats();
+    // Show tour on page load/refresh
+    const hasSeenTour = sessionStorage.getItem('hasSeenTour');
+    if (!hasSeenTour) {
+      setShowTour(true);
+      sessionStorage.setItem('hasSeenTour', 'true');
+    }
   }, []);
 
-  const loadStudentStats = async () => {
-    try {
-      setIsLoadingStats(true);
-      const stats = await getStudentStats();
-      setStudentStats(stats);
-    } catch (error) {
-      console.error('Error loading student stats:', error);
-    } finally {
-      setIsLoadingStats(false);
+  const protectedSections = ["enrollment", "records", "academic", "fees"];
+
+  const renderTabContent = (tabValue: string, content: React.ReactNode, sectionName: string) => {
+    if (protectedSections.includes(tabValue)) {
+      return (
+        <PinProtection sectionName={sectionName}>
+          {content}
+        </PinProtection>
+      );
     }
-  };
-
-  useEffect(() => {
-    if (activeTab === "dashboard") {
-      loadStudentStats();
-    }
-  }, [activeTab]);
-
-  const stats = [
-    {
-      title: "Total Students",
-      value: isLoadingStats ? "..." : studentStats.total.toString(),
-      change: `${studentStats.maleCount} Male, ${studentStats.femaleCount} Female`,
-      icon: Users,
-      color: "text-pink-600"
-    }
-  ];
-
-  const navigationItems = [
-    { id: "dashboard", label: "Dashboard", icon: GraduationCap, description: "Overview of school statistics" },
-    { id: "enrollment", label: "Enrollment", icon: Users, description: "Manage student enrollment" },
-    { id: "records", label: "Records", icon: FileText, description: "View and manage student records" },
-    { id: "academic", label: "Academic", icon: BookOpen, description: "Academic performance and results" },
-    { id: "student-portal", label: "Student Portal", icon: UserCheck, description: "Student access portal" },
-    { id: "fees", label: "Fee Management", icon: DollarSign, description: "Manage school fees and payments" },
-  ];
-
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    setIsMobileMenuOpen(false);
+    return content;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-rose-50">
-      {/* Mobile Header */}
-      <header className="lg:hidden bg-white/90 backdrop-blur-md shadow-sm border-b border-pink-200 sticky top-0 z-40">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-rose-500 rounded-lg flex items-center justify-center hover-lift">
-              <GraduationCap className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">School Management</h1>
-              <p className="text-xs text-pink-600">Education Excellence</p>
-            </div>
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between bg-white rounded-lg shadow-sm p-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              School Management System
+            </h1>
+            <p className="text-gray-600">
+              Manage students, academics, fees, and generate reports efficiently
+            </p>
           </div>
-          
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="ghost"
-              size="sm"
+          <div className="flex items-center space-x-2 mt-4 md:mt-0">
+            <Button 
+              variant="outline" 
+              size="sm" 
               onClick={() => setShowTour(true)}
-              className="hover:bg-pink-100"
+              className="flex items-center space-x-2"
             >
-              <HelpCircle className="w-4 h-4" />
+              <Play className="w-4 h-4" />
+              <span>Start Tour</span>
             </Button>
-            
-            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="hover:bg-pink-100">
-                  <Menu className="w-6 h-6" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-80 p-0 bg-gradient-to-b from-pink-50 to-white">
-                <div className="p-6 border-b border-pink-200">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gradient-to-r from-pink-500 to-rose-500 rounded-xl flex items-center justify-center">
-                      <GraduationCap className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900">School Management</h2>
-                      <p className="text-sm text-pink-600">Education Excellence</p>
-                    </div>
-                  </div>
+            <ChangePinDialog />
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Dashboard</CardTitle>
+            <CardDescription>
+              Access all school management features from this central hub
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+              <TabsList className="grid grid-cols-3 lg:grid-cols-8 h-auto p-1">
+                <TabsTrigger value="overview" className="flex items-center space-x-2 p-3">
+                  <TrendingUp className="w-4 h-4" />
+                  <span className="hidden sm:inline">Overview</span>
+                </TabsTrigger>
+                <TabsTrigger value="enrollment" className="flex items-center space-x-2 p-3">
+                  <UserPlus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Enrollment</span>
+                </TabsTrigger>
+                <TabsTrigger value="records" className="flex items-center space-x-2 p-3">
+                  <Users className="w-4 h-4" />
+                  <span className="hidden sm:inline">Records</span>
+                </TabsTrigger>
+                <TabsTrigger value="academic" className="flex items-center space-x-2 p-3">
+                  <BookOpen className="w-4 h-4" />
+                  <span className="hidden sm:inline">Academic</span>
+                </TabsTrigger>
+                <TabsTrigger value="fees" className="flex items-center space-x-2 p-3">
+                  <DollarSign className="w-4 h-4" />
+                  <span className="hidden sm:inline">Fees</span>
+                </TabsTrigger>
+                <TabsTrigger value="results" className="flex items-center space-x-2 p-3">
+                  <FileText className="w-4 h-4" />
+                  <span className="hidden sm:inline">Results</span>
+                </TabsTrigger>
+                <TabsTrigger value="subjects" className="flex items-center space-x-2 p-3">
+                  <BookOpen className="w-4 h-4" />
+                  <span className="hidden sm:inline">Subjects</span>
+                </TabsTrigger>
+                <TabsTrigger value="system" className="flex items-center space-x-2 p-3">
+                  <RotateCcw className="w-4 h-4" />
+                  <span className="hidden sm:inline">System</span>
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">--</div>
+                      <p className="text-xs text-muted-foreground">
+                        Enrolled students
+                      </p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Active Grades</CardTitle>
+                      <BookOpen className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">9</div>
+                      <p className="text-xs text-muted-foreground">
+                        Grade 1 to Grade 9
+                      </p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Fee Collection</CardTitle>
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">--</div>
+                      <p className="text-xs text-muted-foreground">
+                        This academic year
+                      </p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Current Term</CardTitle>
+                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">Term 1</div>
+                      <p className="text-xs text-muted-foreground">
+                        Academic Year 2025
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
-                
-                <nav className="p-4 space-y-2">
-                  {navigationItems.map((item) => (
-                    <Button
-                      key={item.id}
-                      variant={activeTab === item.id ? "default" : "ghost"}
-                      className={`w-full justify-start p-4 h-auto hover-lift ${
-                        activeTab === item.id 
-                          ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-lg" 
-                          : "hover:bg-pink-100"
-                      }`}
-                      onClick={() => handleTabChange(item.id)}
-                    >
-                      <item.icon className="w-5 h-5 mr-3" />
-                      <div className="text-left">
-                        <div className="font-medium">{item.label}</div>
-                        <div className="text-xs opacity-70">{item.description}</div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Quick Actions</CardTitle>
+                      <CardDescription>Common tasks and shortcuts</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <Button 
+                        onClick={() => setActiveTab("enrollment")} 
+                        className="w-full justify-start"
+                        variant="outline"
+                      >
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Enroll New Student
+                      </Button>
+                      <Button 
+                        onClick={() => setActiveTab("academic")} 
+                        className="w-full justify-start"
+                        variant="outline"
+                      >
+                        <BookOpen className="w-4 h-4 mr-2" />
+                        Enter Marks
+                      </Button>
+                      <Button 
+                        onClick={() => setActiveTab("fees")} 
+                        className="w-full justify-start"
+                        variant="outline"
+                      >
+                        <DollarSign className="w-4 h-4 mr-2" />
+                        Record Fee Payment
+                      </Button>
+                      <Button 
+                        onClick={() => setActiveTab("results")} 
+                        className="w-full justify-start"
+                        variant="outline"
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        View Results
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>System Status</CardTitle>
+                      <CardDescription>Current system information</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Database</span>
+                        <span className="text-sm font-medium text-green-600">Connected</span>
                       </div>
-                    </Button>
-                  ))}
-                </nav>
-              </SheetContent>
-            </Sheet>
-          </div>
-        </div>
-      </header>
-
-      {/* Desktop Header */}
-      <header className="hidden lg:block bg-white/90 backdrop-blur-md shadow-sm border-b border-pink-200">
-        <div className="container-responsive">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl flex items-center justify-center hover-lift animate-pulse-pink">
-                <GraduationCap className="w-10 h-10 text-white" />
-              </div>
-              <div>
-                <h1 className="heading-responsive font-bold text-gray-900">School Management System</h1>
-                <p className="text-sm text-pink-600">Excellence in Education</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowTour(true)}
-                className="border-pink-300 text-pink-600 hover:bg-pink-50 hover-lift"
-              >
-                <HelpCircle className="w-4 h-4 mr-2" />
-                <span>Take Tour</span>
-              </Button>
-              <Button variant="outline" className="border-pink-300 text-pink-600 hover:bg-pink-50 hover-lift">
-                <UserCheck className="w-4 h-4 mr-2" />
-                <span>Admin Portal</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container-responsive py-4 lg:py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          {/* Desktop Navigation */}
-          <TabsList className="hidden lg:grid grid-cols-6 bg-white/80 backdrop-blur-sm shadow-lg border border-pink-200 rounded-2xl p-2">
-            {navigationItems.map((item) => (
-              <TabsTrigger 
-                key={item.id}
-                value={item.id} 
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-500 data-[state=active]:to-rose-500 data-[state=active]:text-white transition-all duration-300 hover-lift rounded-xl"
-              >
-                <item.icon className="w-4 h-4 mr-2" />
-                {item.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          <TabsContent value="dashboard" className="space-y-6 animate-fade-in">
-            <div className="text-center lg:text-left">
-              <h2 className="heading-responsive font-bold text-gray-900 mb-2">Dashboard Overview</h2>
-              <p className="text-responsive text-gray-600">Welcome to your school management dashboard</p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6">
-              {stats.map((stat, index) => (
-                <Card 
-                  key={index} 
-                  className="hover:shadow-xl transition-all duration-300 hover-lift border-0 bg-white/80 backdrop-blur-sm group animate-fade-in border border-pink-200"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      {stat.title}
-                    </CardTitle>
-                    {isLoadingStats && index === 0 ? (
-                      <Loader className="w-5 h-5 animate-spin text-pink-600" />
-                    ) : (
-                      <stat.icon className={`w-5 h-5 ${stat.color} group-hover:scale-110 transition-transform duration-300`} />
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
-                    <p className="text-xs text-gray-500 mt-1">{stat.change}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Quick Actions */}
-            <Card className="p-6 hover:shadow-xl transition-all duration-300 hover-lift border-0 bg-white/80 backdrop-blur-sm animate-fade-in border border-pink-200">
-              <CardHeader className="px-0 pt-0">
-                <CardTitle className="heading-responsive">Quick Actions</CardTitle>
-                <CardDescription className="text-responsive">
-                  Common tasks for school administration
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="px-0 pb-0">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Button 
-                    onClick={() => setActiveTab("enrollment")}
-                    className="h-20 flex flex-col items-center justify-center space-y-2 hover-lift bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600"
-                  >
-                    <Users className="w-6 h-6" />
-                    <span>New Student</span>
-                  </Button>
-                  <Button 
-                    onClick={() => setActiveTab("academic")}
-                    variant="outline" 
-                    className="h-20 flex flex-col items-center justify-center space-y-2 hover-lift border-pink-300 text-pink-600 hover:bg-pink-50"
-                  >
-                    <FileText className="w-6 h-6" />
-                    <span>Enter Marks</span>
-                  </Button>
-                  <Button 
-                    onClick={() => setActiveTab("records")}
-                    variant="outline" 
-                    className="h-20 flex flex-col items-center justify-center space-y-2 hover-lift border-pink-300 text-pink-600 hover:bg-pink-50"
-                  >
-                    <BookOpen className="w-6 h-6" />
-                    <span>View Records</span>
-                  </Button>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Security</span>
+                        <span className="text-sm font-medium text-green-600">PIN Protected</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Subjects</span>
+                        <span className="text-sm font-medium text-blue-600">Database Synced</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Currency</span>
+                        <span className="text-sm font-medium text-blue-600">Zambian Kwacha (ZMW)</span>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              </TabsContent>
 
-          <TabsContent value="enrollment" className="animate-fade-in">
-            <StudentEnrollment />
-          </TabsContent>
+              <TabsContent value="enrollment" className="space-y-4">
+                {renderTabContent("enrollment", <StudentEnrollment />, "Student Enrollment")}
+              </TabsContent>
 
-          <TabsContent value="records" className="animate-fade-in">
-            <StudentRecords />
-          </TabsContent>
+              <TabsContent value="records" className="space-y-4">
+                {renderTabContent("records", <StudentRecords />, "Student Records")}
+              </TabsContent>
 
-          <TabsContent value="academic" className="animate-fade-in">
-            <AcademicSection />
-          </TabsContent>
+              <TabsContent value="academic" className="space-y-4">
+                {renderTabContent("academic", <AcademicSection />, "Academic Management")}
+              </TabsContent>
 
-          <TabsContent value="student-portal" className="animate-fade-in">
-            <StudentPortal />
-          </TabsContent>
+              <TabsContent value="fees" className="space-y-4">
+                {renderTabContent("fees", <FeeManagement />, "Fee Management")}
+              </TabsContent>
 
-          <TabsContent value="fees" className="animate-fade-in">
-            <FeeManagement />
-          </TabsContent>
-        </Tabs>
-      </main>
+              <TabsContent value="results" className="space-y-4">
+                <ResultsSection />
+              </TabsContent>
 
-      {/* Tour Guide Component */}
-      {showTour && (
-        <TourGuide 
-          isOpen={showTour} 
-          onClose={() => setShowTour(false)}
-          currentTab={activeTab}
-        />
-      )}
+              <TabsContent value="subjects" className="space-y-4">
+                <SubjectManagement />
+              </TabsContent>
+
+              <TabsContent value="system" className="space-y-4">
+                <SystemReset />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        {/* Tour Guide */}
+        {showTour && (
+          <TourGuide 
+            isOpen={showTour} 
+            onClose={() => setShowTour(false)} 
+          />
+        )}
+      </div>
     </div>
   );
 };
