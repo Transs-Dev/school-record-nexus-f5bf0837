@@ -11,7 +11,7 @@ import { BookOpen, Save, Search, Plus, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { 
   fetchStudentsByGrade, 
-  saveExaminationMark,
+  saveExaminationMarks,
   fetchExaminationMarks,
   type Student,
   type ExaminationMark 
@@ -165,7 +165,7 @@ const AcademicSection = () => {
             ...studentMarks
           };
 
-          await saveExaminationMark(examData);
+          await saveExaminationMarks(examData);
           savedCount++;
         } catch (error) {
           console.error(`Error saving marks for student ${student.student_name}:`, error);
