@@ -1,0 +1,307 @@
+
+import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { BookOpen, Plus, Edit, Trash2, Save } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+
+interface Subject {
+  id: string;
+  key: string;
+  label: string;
+  maxMarks: number;
+}
+
+const SubjectManagement = () => {
+  const [subjects, setSubjects] = useState<Subject[]>([
+    { id: "1", key: "mathematics", label: "Mathematics", maxMarks: 100 },
+    { id: "2", key: "english", label: "English", maxMarks: 100 },
+    { id: "3", key: "kiswahili", label: "Kiswahili", maxMarks: 100 },
+    { id: "4", key: "science", label: "Science", maxMarks: 100 },
+    { id: "5", key: "social_studies", label: "Social Studies", maxMarks: 100 },
+    { id: "6", key: "ire_cre", label: "IRE/CRE", maxMarks: 100 }
+  ]);
+  
+  const [newSubject, setNewSubject] = useState({ key: "", label: "", maxMarks: 100 });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+
+  const handleAddSubject = () => {
+    if (!newSubject.key || !newSubject.label) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check if subject key already exists
+    if (subjects.some(subject => subject.key === newSubject.key)) {
+      toast({
+        title: "Duplicate Subject",
+        description: "A subject with this key already exists.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const subject: Subject = {
+      id: Date.now().toString(),
+      key: newSubject.key.toLowerCase().replace(/\s+/g, '_'),
+      label: newSubject.label,
+      maxMarks: newSubject.maxMarks
+    };
+
+    setSubjects([...subjects, subject]);
+    setNewSubject({ key: "", label: "", maxMarks: 100 });
+    
+    toast({
+      title: "Subject Added",
+      description: `${subject.label} has been added successfully.`,
+    });
+  };
+
+  const handleEditSubject = (subject: Subject) => {
+    setEditingId(subject.id);
+    setEditingSubject({ ...subject });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingSubject) return;
+
+    const updatedSubjects = subjects.map(subject => 
+      subject.id === editingId ? editingSubject : subject
+    );
+    
+    setSubjects(updatedSubjects);
+    setEditingId(null);
+    setEditingSubject(null);
+    
+    toast({
+      title: "Subject Updated",
+      description: `${editingSubject.label} has been updated successfully.`,
+    });
+  };
+
+  const handleDeleteSubject = (subjectId: string) => {
+    const subject = subjects.find(s => s.id === subjectId);
+    if (!subject) return;
+
+    setSubjects(subjects.filter(s => s.id !== subjectId));
+    
+    toast({
+      title: "Subject Deleted",
+      description: `${subject.label} has been removed from the system.`,
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditingSubject(null);
+  };
+
+  const getTotalMaxMarks = () => {
+    return subjects.reduce((total, subject) => total + subject.maxMarks, 0);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">Subject Management</h2>
+        <p className="text-gray-600">Add, edit, and manage subjects for examination grading</p>
+      </div>
+
+      {/* Add New Subject */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Plus className="w-5 h-5" />
+            <span>Add New Subject</span>
+          </CardTitle>
+          <CardDescription>
+            Create a new subject for examination grading
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="subject-key">Subject Key</Label>
+              <Input
+                id="subject-key"
+                placeholder="e.g., chemistry"
+                value={newSubject.key}
+                onChange={(e) => setNewSubject(prev => ({ ...prev, key: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="subject-label">Subject Name</Label>
+              <Input
+                id="subject-label"
+                placeholder="e.g., Chemistry"
+                value={newSubject.label}
+                onChange={(e) => setNewSubject(prev => ({ ...prev, label: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="max-marks">Maximum Marks</Label>
+              <Input
+                id="max-marks"
+                type="number"
+                min="1"
+                max="200"
+                value={newSubject.maxMarks}
+                onChange={(e) => setNewSubject(prev => ({ ...prev, maxMarks: parseInt(e.target.value) || 100 }))}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end mt-4">
+            <Button onClick={handleAddSubject}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Subject
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Current Subjects */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <BookOpen className="w-5 h-5" />
+              <span>Current Subjects</span>
+            </div>
+            <Badge variant="secondary">
+              Total Max: {getTotalMaxMarks()} marks
+            </Badge>
+          </CardTitle>
+          <CardDescription>
+            Manage existing subjects and their maximum marks
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Subject Key</TableHead>
+                  <TableHead>Subject Name</TableHead>
+                  <TableHead className="text-center">Maximum Marks</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {subjects.map((subject) => (
+                  <TableRow key={subject.id}>
+                    <TableCell>
+                      {editingId === subject.id ? (
+                        <Input
+                          value={editingSubject?.key || ""}
+                          onChange={(e) => setEditingSubject(prev => prev ? { ...prev, key: e.target.value } : null)}
+                          className="font-mono text-sm"
+                        />
+                      ) : (
+                        <span className="font-mono text-sm">{subject.key}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingId === subject.id ? (
+                        <Input
+                          value={editingSubject?.label || ""}
+                          onChange={(e) => setEditingSubject(prev => prev ? { ...prev, label: e.target.value } : null)}
+                          className="font-medium"
+                        />
+                      ) : (
+                        <span className="font-medium">{subject.label}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {editingId === subject.id ? (
+                        <Input
+                          type="number"
+                          min="1"
+                          max="200"
+                          value={editingSubject?.maxMarks || 100}
+                          onChange={(e) => setEditingSubject(prev => prev ? { ...prev, maxMarks: parseInt(e.target.value) || 100 } : null)}
+                          className="w-20 mx-auto text-center"
+                        />
+                      ) : (
+                        <Badge variant="outline">{subject.maxMarks}</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center space-x-2">
+                        {editingId === subject.id ? (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={handleSaveEdit}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Save className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={cancelEdit}
+                              className="h-8 w-8 p-0"
+                            >
+                              <span className="sr-only">Cancel</span>
+                              ×
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditSubject(subject)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDeleteSubject(subject.id)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {subjects.length === 0 && (
+            <div className="text-center py-8">
+              <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Subjects Found</h3>
+              <p className="text-gray-600">Add your first subject to start managing examinations.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+        <h4 className="font-medium text-yellow-800 mb-2">Important Note</h4>
+        <p className="text-sm text-yellow-700">
+          Changes to subjects will affect all examination records. Ensure you update existing examination marks 
+          when modifying subjects to maintain data consistency across the system.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default SubjectManagement;

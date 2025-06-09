@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { BookOpen, Save, Calculator, Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BookOpen, Save, Calculator, Loader2, Trophy, Settings, RotateCcw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { 
   fetchStudentsByGrade, 
@@ -18,6 +19,9 @@ import {
   type Student,
   type ExaminationMark 
 } from "@/utils/studentDatabase";
+import ResultsSection from "./ResultsSection";
+import SubjectManagement from "./SubjectManagement";
+import SystemReset from "./SystemReset";
 
 const AcademicSection = () => {
   const [selectedGrade, setSelectedGrade] = useState("");
@@ -223,196 +227,231 @@ const AcademicSection = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold text-gray-900 mb-2">Academic Section</h2>
-        <p className="text-gray-600">Enter and manage examination results</p>
+        <p className="text-gray-600">Manage examinations, results, subjects, and system settings</p>
       </div>
 
-      {/* Selection Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <BookOpen className="w-5 h-5" />
-            <span>Class & Term Selection</span>
-          </CardTitle>
-          <CardDescription>
-            Select the grade and term to enter examination marks
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="grade-select">Grade</Label>
-              <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-                <SelectTrigger id="grade-select">
-                  <SelectValue placeholder="Select Grade" />
-                </SelectTrigger>
-                <SelectContent>
-                  {grades.map((grade) => (
-                    <SelectItem key={grade} value={grade}>
-                      {grade}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="term-select">Term</Label>
-              <Select value={selectedTerm} onValueChange={setSelectedTerm}>
-                <SelectTrigger id="term-select">
-                  <SelectValue placeholder="Select Term" />
-                </SelectTrigger>
-                <SelectContent>
-                  {terms.map((term) => (
-                    <SelectItem key={term} value={term}>
-                      {term}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="marks-entry" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="marks-entry" className="flex items-center space-x-2">
+            <BookOpen className="w-4 h-4" />
+            <span>Marks Entry</span>
+          </TabsTrigger>
+          <TabsTrigger value="results" className="flex items-center space-x-2">
+            <Trophy className="w-4 h-4" />
+            <span>Results</span>
+          </TabsTrigger>
+          <TabsTrigger value="subjects" className="flex items-center space-x-2">
+            <Settings className="w-4 h-4" />
+            <span>Subjects</span>
+          </TabsTrigger>
+          <TabsTrigger value="system-reset" className="flex items-center space-x-2">
+            <RotateCcw className="w-4 h-4" />
+            <span>System Reset</span>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Loading State */}
-      {loading && (
-        <Card>
-          <CardContent className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin mr-2" />
-            <span>Loading students...</span>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Marks Entry Table */}
-      {selectedGrade && selectedTerm && !loading && students.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Marks Entry - {selectedGrade} ({selectedTerm})</span>
-              <Badge variant="secondary">{students.length} Students</Badge>
-            </CardTitle>
-            <CardDescription>
-              Enter marks for each subject (Maximum: 100 marks per subject)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-[120px]">Reg. Number</TableHead>
-                    <TableHead className="min-w-[150px]">Student Name</TableHead>
-                    {subjects.map((subject) => (
-                      <TableHead key={subject} className="min-w-[100px] text-center">
-                        {subjectLabels[subject as keyof typeof subjectLabels]}
-                      </TableHead>
-                    ))}
-                    <TableHead className="min-w-[80px] text-center">Total</TableHead>
-                    <TableHead className="min-w-[80px] text-center">Position</TableHead>
-                    <TableHead className="min-w-[200px]">Remarks</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {students.map((student) => {
-                    const total = calculateTotal(student.id!);
-                    const position = calculatePosition(student.id!);
-                    
-                    return (
-                      <TableRow key={student.id}>
-                        <TableCell className="font-mono text-sm">
-                          {student.registration_number}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {student.student_name}
-                        </TableCell>
-                        {subjects.map((subject) => (
-                          <TableCell key={subject}>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              placeholder="0"
-                              value={studentMarks[student.id!]?.[subject] || ""}
-                              onChange={(e) => updateMark(student.id!, subject, e.target.value)}
-                              className="w-20 text-center"
-                            />
-                          </TableCell>
-                        ))}
-                        <TableCell className="text-center font-semibold">
-                          <Badge variant={total >= 400 ? "default" : total >= 300 ? "secondary" : "destructive"}>
-                            {total}/600
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center font-semibold">
-                          {total > 0 && (
-                            <Badge variant="outline">
-                              #{position}
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Textarea
-                            placeholder={total > 0 ? generateRemarks(total) : "Enter remarks"}
-                            value={studentMarks[student.id!]?.remarks || ""}
-                            onChange={(e) => updateRemarks(student.id!, e.target.value)}
-                            className="min-w-[200px] h-8 resize-none"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-
-            <div className="flex justify-between items-center mt-6 pt-6 border-t">
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <Calculator className="w-4 h-4" />
-                <span>Total marks calculated automatically (out of 600)</span>
+        <TabsContent value="marks-entry" className="space-y-6">
+          {/* Selection Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <BookOpen className="w-5 h-5" />
+                <span>Class & Term Selection</span>
+              </CardTitle>
+              <CardDescription>
+                Select the grade and term to enter examination marks
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="grade-select">Grade</Label>
+                  <Select value={selectedGrade} onValueChange={setSelectedGrade}>
+                    <SelectTrigger id="grade-select">
+                      <SelectValue placeholder="Select Grade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {grades.map((grade) => (
+                        <SelectItem key={grade} value={grade}>
+                          {grade}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="term-select">Term</Label>
+                  <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+                    <SelectTrigger id="term-select">
+                      <SelectValue placeholder="Select Term" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {terms.map((term) => (
+                        <SelectItem key={term} value={term}>
+                          {term}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <Button onClick={handleSave} size="lg" disabled={saving}>
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save All Marks
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
 
-      {/* No Students Found */}
-      {selectedGrade && selectedTerm && !loading && students.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <BookOpen className="w-12 h-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Students Found</h3>
-            <p className="text-gray-600 text-center">
-              No students found for {selectedGrade}. Please check if students are enrolled in this grade.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+          {/* Loading State */}
+          {loading && (
+            <Card>
+              <CardContent className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin mr-2" />
+                <span>Loading students...</span>
+              </CardContent>
+            </Card>
+          )}
 
-      {/* Initial State */}
-      {!selectedGrade && !selectedTerm && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <BookOpen className="w-12 h-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Select Grade and Term</h3>
-            <p className="text-gray-600 text-center">
-              Choose a grade and term to start entering examination marks
-            </p>
-          </CardContent>
-        </Card>
-      )}
+          {/* Marks Entry Table */}
+          {selectedGrade && selectedTerm && !loading && students.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Marks Entry - {selectedGrade} ({selectedTerm})</span>
+                  <Badge variant="secondary">{students.length} Students</Badge>
+                </CardTitle>
+                <CardDescription>
+                  Enter marks for each subject (Maximum: 100 marks per subject)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="min-w-[120px]">Reg. Number</TableHead>
+                        <TableHead className="min-w-[150px]">Student Name</TableHead>
+                        {subjects.map((subject) => (
+                          <TableHead key={subject} className="min-w-[100px] text-center">
+                            {subjectLabels[subject as keyof typeof subjectLabels]}
+                          </TableHead>
+                        ))}
+                        <TableHead className="min-w-[80px] text-center">Total</TableHead>
+                        <TableHead className="min-w-[80px] text-center">Position</TableHead>
+                        <TableHead className="min-w-[200px]">Remarks</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {students.map((student) => {
+                        const total = calculateTotal(student.id!);
+                        const position = calculatePosition(student.id!);
+                        
+                        return (
+                          <TableRow key={student.id}>
+                            <TableCell className="font-mono text-sm">
+                              {student.registration_number}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {student.student_name}
+                            </TableCell>
+                            {subjects.map((subject) => (
+                              <TableCell key={subject}>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  placeholder="0"
+                                  value={studentMarks[student.id!]?.[subject] || ""}
+                                  onChange={(e) => updateMark(student.id!, subject, e.target.value)}
+                                  className="w-20 text-center"
+                                />
+                              </TableCell>
+                            ))}
+                            <TableCell className="text-center font-semibold">
+                              <Badge variant={total >= 400 ? "default" : total >= 300 ? "secondary" : "destructive"}>
+                                {total}/600
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center font-semibold">
+                              {total > 0 && (
+                                <Badge variant="outline">
+                                  #{position}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Textarea
+                                placeholder={total > 0 ? generateRemarks(total) : "Enter remarks"}
+                                value={studentMarks[student.id!]?.remarks || ""}
+                                onChange={(e) => updateRemarks(student.id!, e.target.value)}
+                                className="min-w-[200px] h-8 resize-none"
+                              />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="flex justify-between items-center mt-6 pt-6 border-t">
+                  <div className="flex items-center space-x-2 text-sm text-gray-600">
+                    <Calculator className="w-4 h-4" />
+                    <span>Total marks calculated automatically (out of 600)</span>
+                  </div>
+                  <Button onClick={handleSave} size="lg" disabled={saving}>
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save All Marks
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* No Students Found */}
+          {selectedGrade && selectedTerm && !loading && students.length === 0 && (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <BookOpen className="w-12 h-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Students Found</h3>
+                <p className="text-gray-600 text-center">
+                  No students found for {selectedGrade}. Please check if students are enrolled in this grade.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Initial State */}
+          {!selectedGrade && !selectedTerm && (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <BookOpen className="w-12 h-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Select Grade and Term</h3>
+                <p className="text-gray-600 text-center">
+                  Choose a grade and term to start entering examination marks
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="results">
+          <ResultsSection />
+        </TabsContent>
+
+        <TabsContent value="subjects">
+          <SubjectManagement />
+        </TabsContent>
+
+        <TabsContent value="system-reset">
+          <SystemReset />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

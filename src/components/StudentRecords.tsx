@@ -6,8 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Filter, Loader } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Search, Filter, Edit, Trash2, Save, X } from "lucide-react";
 import { fetchAllStudents, printStudentList, downloadStudentList, type Student } from "@/utils/studentDatabase";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 const StudentRecords = () => {
@@ -16,6 +19,9 @@ const StudentRecords = () => {
   const [selectedYear, setSelectedYear] = useState("all");
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     loadStudents();
@@ -62,6 +68,113 @@ const StudentRecords = () => {
     return matchesSearch && matchesGrade && matchesYear;
   });
 
+  const handleEditStudent = (student: Student) => {
+    setEditingStudent({ ...student });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingStudent || !editingStudent.id) return;
+
+    try {
+      setIsSaving(true);
+      
+      const { error } = await supabase
+        .from('students')
+        .update({
+          student_name: editingStudent.student_name,
+          grade: editingStudent.grade,
+          date_of_birth: editingStudent.date_of_birth,
+          parent_name: editingStudent.parent_name,
+          address: editingStudent.address,
+          primary_contact: editingStudent.primary_contact,
+          alternative_contact: editingStudent.alternative_contact,
+          gender: editingStudent.gender,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingStudent.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setStudents(prev => prev.map(student => 
+        student.id === editingStudent.id ? editingStudent : student
+      ));
+
+      setIsEditDialogOpen(false);
+      setEditingStudent(null);
+
+      toast({
+        title: "Student Updated",
+        description: `${editingStudent.student_name}'s information has been updated successfully.`,
+      });
+
+    } catch (error) {
+      console.error('Error updating student:', error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update student information. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteStudent = async (student: Student) => {
+    if (!student.id) return;
+
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete ${student.student_name}? This action cannot be undone and will also remove all associated examination records and fee data.`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      // Delete related examination marks first
+      await supabase
+        .from('examination_marks')
+        .delete()
+        .eq('student_id', student.id);
+
+      // Delete related fee records
+      await supabase
+        .from('student_fee_records')
+        .delete()
+        .eq('student_id', student.id);
+
+      // Delete related fee payments
+      await supabase
+        .from('fee_payments')
+        .delete()
+        .eq('student_id', student.id);
+
+      // Delete the student record
+      const { error } = await supabase
+        .from('students')
+        .delete()
+        .eq('id', student.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setStudents(prev => prev.filter(s => s.id !== student.id));
+
+      toast({
+        title: "Student Deleted",
+        description: `${student.student_name} has been removed from the system.`,
+      });
+
+    } catch (error) {
+      console.error('Error deleting student:', error);
+      toast({
+        title: "Deletion Failed",
+        description: "Failed to delete student. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handlePrint = () => {
     printStudentList(filteredStudents);
     toast({
@@ -82,7 +195,7 @@ const StudentRecords = () => {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex items-center space-x-2">
-          <Loader className="w-6 h-6 animate-spin" />
+          <div className="w-6 h-6 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
           <span>Loading student records...</span>
         </div>
       </div>
@@ -189,7 +302,7 @@ const StudentRecords = () => {
         <CardHeader>
           <CardTitle>Student Records</CardTitle>
           <CardDescription>
-            Complete list of enrolled students with their details
+            Complete list of enrolled students with their details and management options
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -205,6 +318,7 @@ const StudentRecords = () => {
                   <TableHead>Parent/Guardian</TableHead>
                   <TableHead>Primary Contact</TableHead>
                   <TableHead>Alternative Contact</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -234,6 +348,26 @@ const StudentRecords = () => {
                     <TableCell className="text-gray-500">
                       {student.alternative_contact || "N/A"}
                     </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEditStudent(student)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteStudent(student)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -247,6 +381,138 @@ const StudentRecords = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Student Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Student Information</DialogTitle>
+            <DialogDescription>
+              Update the student's details. All fields marked with * are required.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingStudent && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Student Name *</Label>
+                <Input
+                  id="edit-name"
+                  value={editingStudent.student_name}
+                  onChange={(e) => setEditingStudent(prev => prev ? { ...prev, student_name: e.target.value } : null)}
+                  placeholder="Enter student's full name"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit-grade">Grade *</Label>
+                <Select value={editingStudent.grade} onValueChange={(value) => setEditingStudent(prev => prev ? { ...prev, grade: value } : null)}>
+                  <SelectTrigger id="edit-grade">
+                    <SelectValue placeholder="Select Grade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {grades.map((grade) => (
+                      <SelectItem key={grade} value={grade}>
+                        {grade}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-dob">Date of Birth *</Label>
+                <Input
+                  id="edit-dob"
+                  type="date"
+                  value={editingStudent.date_of_birth}
+                  onChange={(e) => setEditingStudent(prev => prev ? { ...prev, date_of_birth: e.target.value } : null)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-gender">Gender *</Label>
+                <Select value={editingStudent.gender} onValueChange={(value: 'Male' | 'Female') => setEditingStudent(prev => prev ? { ...prev, gender: value } : null)}>
+                  <SelectTrigger id="edit-gender">
+                    <SelectValue placeholder="Select Gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-parent">Parent/Guardian Name *</Label>
+                <Input
+                  id="edit-parent"
+                  value={editingStudent.parent_name}
+                  onChange={(e) => setEditingStudent(prev => prev ? { ...prev, parent_name: e.target.value } : null)}
+                  placeholder="Enter parent/guardian name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-primary-contact">Primary Contact *</Label>
+                <Input
+                  id="edit-primary-contact"
+                  value={editingStudent.primary_contact}
+                  onChange={(e) => setEditingStudent(prev => prev ? { ...prev, primary_contact: e.target.value } : null)}
+                  placeholder="Enter primary phone number"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-alternative-contact">Alternative Contact</Label>
+                <Input
+                  id="edit-alternative-contact"
+                  value={editingStudent.alternative_contact || ""}
+                  onChange={(e) => setEditingStudent(prev => prev ? { ...prev, alternative_contact: e.target.value } : null)}
+                  placeholder="Enter alternative phone number"
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="edit-address">Home Address</Label>
+                <Input
+                  id="edit-address"
+                  value={editingStudent.address || ""}
+                  onChange={(e) => setEditingStudent(prev => prev ? { ...prev, address: e.target.value } : null)}
+                  placeholder="Enter home address"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+              disabled={isSaving}
+            >
+              <X className="w-4 h-4 mr-2" />
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
