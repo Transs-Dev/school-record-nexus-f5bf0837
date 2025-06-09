@@ -1,5 +1,3 @@
-
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface FeeConfiguration {
@@ -107,6 +105,24 @@ export const saveFeeConfiguration = async (config: Omit<FeeConfiguration, 'id' |
 
     return data;
   }
+};
+
+// Utility function to format currency in Zambian Kwacha
+export const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('en-ZM', {
+    style: 'currency',
+    currency: 'ZMW',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount);
+};
+
+// Utility function to format currency without symbol (for display)
+export const formatAmount = (amount: number): string => {
+  return new Intl.NumberFormat('en-ZM', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount);
 };
 
 // Student Fee Records Functions
@@ -292,7 +308,9 @@ export const getFeeAnalytics = async (academicYear?: string) => {
     termBreakdown,
     totalPayments: payments?.length || 0,
     verifiedPayments: payments?.filter(p => p.verification_status === 'Verified').length || 0,
-    pendingPayments: payments?.filter(p => p.verification_status === 'Pending').length || 0
+    pendingPayments: payments?.filter(p => p.verification_status === 'Pending').length || 0,
+    // Add formatted currency values
+    totalCollectedFormatted: formatCurrency(totalCollected),
+    pendingAmountFormatted: formatCurrency(pendingAmount)
   };
 };
-
