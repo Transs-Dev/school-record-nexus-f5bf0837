@@ -36,12 +36,26 @@ import {
 } from "@/utils/studentDatabase";
 import { fetchSubjects, type Subject } from "@/utils/subjectDatabase";
 
+interface SubjectMark {
+  subject_id: string;
+  marks: number;
+}
+
+interface ExamData {
+  student_id: string;
+  grade: string;
+  term: string;
+  academic_year: string;
+  subject_marks: SubjectMark[];
+  total_marks: number;
+}
+
 const AcademicSection = () => {
   const [selectedGrade, setSelectedGrade] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("");
   const [students, setStudents] = useState<Student[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [marks, setMarks] = useState<{ [key: string]: { [subjectId: string]: number } }>({});
+  const [marks, setMarks] = useState<Record<string, Record<string, number>>>({});
   const [existingMarks, setExistingMarks] = useState<ExaminationMark[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -87,13 +101,11 @@ const AcademicSection = () => {
       const marksData = await fetchExaminationMarks(selectedGrade, selectedTerm, currentYear);
       setExistingMarks(marksData);
 
-      // Initialize marks state
-      const marksState: { [key: string]: { [subjectId: string]: number } } = {};
+      const marksState: Record<string, Record<string, number>> = {};
       
       studentsData.forEach((student) => {
         marksState[student.id] = {};
         subjects.forEach((subject) => {
-          // Find if this student has existing marks for this subject
           const existingExam = marksData.find(mark => mark.student_id === student.id);
           if (existingExam) {
             const subjectMark = existingExam.subject_marks?.find(sm => sm.subject_id === subject.id);
@@ -152,9 +164,7 @@ const AcademicSection = () => {
 
   const calculateTotal = (studentId: string) => {
     if (!marks[studentId]) return 0;
-    return Object.entries(marks[studentId]).reduce((sum, [subjectId, mark]) => {
-      return sum + (mark || 0);
-    }, 0);
+    return Object.values(marks[studentId]).reduce((sum, mark) => sum + (mark || 0), 0);
   };
 
   const getGrade = (total: number) => {
@@ -197,25 +207,29 @@ const AcademicSection = () => {
           const studentMarks = marks[student.id] || {};
           const total = calculateTotal(student.id);
 
-          // Prepare subject marks data
-          const subjectMarksData = Object.entries(studentMarks).map(([subjectId, mark]) => ({
-            subject_id: subjectId,
-            marks: mark,
-          }));
+          const subjectMarksData = Object.entries(studentMarks).map(
+            ([subjectId, mark]) => ({
+              subject_id: subjectId,
+              marks: mark,
+            })
+          );
 
-          // Save the examination record
-          await saveExaminationMarks({
+          const examData: ExamData = {
             student_id: student.id,
             grade: selectedGrade,
             term: selectedTerm,
             academic_year: currentYear,
             subject_marks: subjectMarksData,
             total_marks: total,
-          });
+          };
 
+          await saveExaminationMarks(examData);
           savedCount++;
         } catch (error) {
-          console.error(`Error saving marks for student ${student.student_name}:`, error);
+          console.error(
+            `Error saving marks for student ${student.student_name}:`,
+            error
+          );
           errorCount++;
         }
       }
@@ -223,7 +237,9 @@ const AcademicSection = () => {
       if (savedCount > 0) {
         toast({
           title: "Marks Saved",
-          description: `Successfully saved marks for ${savedCount} student(s). ${errorCount > 0 ? `${errorCount} failed.` : ""}`,
+          description: `Successfully saved marks for ${savedCount} student(s). ${
+            errorCount > 0 ? `${errorCount} failed.` : ""
+          }`,
         });
         await loadStudentsAndMarks();
       } else {
