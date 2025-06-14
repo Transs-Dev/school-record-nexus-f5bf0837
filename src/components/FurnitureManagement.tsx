@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Package, Users, ChevronRight, Plus, Search } from "lucide-react";
 import { fetchAllStudents, Student } from "@/utils/studentDatabase";
@@ -16,6 +18,7 @@ import {
   FurnitureTransaction,
   CreateFurnitureTransaction 
 } from "@/utils/furnitureDatabase";
+import BulkFurnitureAssignment from "./BulkFurnitureAssignment";
 
 const FurnitureManagement = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -27,6 +30,7 @@ const FurnitureManagement = () => {
   const [lockerQuantity, setLockerQuantity] = useState<number>(0);
   const [notes, setNotes] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [activeTab, setActiveTab] = useState("individual");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -131,120 +135,133 @@ const FurnitureManagement = () => {
         <h2 className="text-2xl font-bold text-gray-900">Furniture Management</h2>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Transaction Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Plus className="h-5 w-5" />
-              <span>Record Transaction</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="student-select">Student</Label>
-              <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a student" />
-                </SelectTrigger>
-                <SelectContent>
-                  {students.map((student) => (
-                    <SelectItem key={student.id} value={student.id}>
-                      {student.student_name} - {student.registration_number} ({student.grade})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid grid-cols-2 w-[400px]">
+          <TabsTrigger value="individual">Individual Assignment</TabsTrigger>
+          <TabsTrigger value="bulk">Bulk Assignment</TabsTrigger>
+        </TabsList>
 
-            <div>
-              <Label htmlFor="transaction-type">Transaction Type</Label>
-              <Select value={transactionType} onValueChange={(value: 'distribution' | 'return') => setTransactionType(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="distribution">Distribution</SelectItem>
-                  <SelectItem value="return">Return</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="chair-quantity">Chair Quantity</Label>
-                <Input
-                  id="chair-quantity"
-                  type="number"
-                  min="0"
-                  value={chairQuantity}
-                  onChange={(e) => setChairQuantity(parseInt(e.target.value) || 0)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="locker-quantity">Locker Quantity</Label>
-                <Input
-                  id="locker-quantity"
-                  type="number"
-                  min="0"
-                  value={lockerQuantity}
-                  onChange={(e) => setLockerQuantity(parseInt(e.target.value) || 0)}
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="notes">Notes (Optional)</Label>
-              <Textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Any additional notes..."
-                rows={3}
-              />
-            </div>
-
-            <Button onClick={handleCreateTransaction} className="w-full">
-              Record {transactionType === 'distribution' ? 'Distribution' : 'Return'}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Quick Stats */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Stats</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
-                  {transactions.filter(t => t.transaction_type === 'distribution').length}
+        <TabsContent value="individual">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Individual Transaction Form */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Plus className="h-5 w-5" />
+                  <span>Record Transaction</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="student-select">Student</Label>
+                  <Select value={selectedStudent} onValueChange={setSelectedStudent}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a student" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {students.map((student) => (
+                        <SelectItem key={student.id} value={student.id}>
+                          {student.student_name} - {student.registration_number} ({student.grade})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <p className="text-sm text-gray-600">Total Distributions</p>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {transactions.filter(t => t.transaction_type === 'return').length}
+
+                <div>
+                  <Label htmlFor="transaction-type">Transaction Type</Label>
+                  <Select value={transactionType} onValueChange={(value: 'distribution' | 'return') => setTransactionType(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="distribution">Distribution</SelectItem>
+                      <SelectItem value="return">Return</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <p className="text-sm text-gray-600">Total Returns</p>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">
-                  {transactions.reduce((sum, t) => sum + (t.chair_quantity || 0), 0)}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="chair-quantity">Chair Quantity</Label>
+                    <Input
+                      id="chair-quantity"
+                      type="number"
+                      min="0"
+                      value={chairQuantity}
+                      onChange={(e) => setChairQuantity(parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="locker-quantity">Locker Quantity</Label>
+                    <Input
+                      id="locker-quantity"
+                      type="number"
+                      min="0"
+                      value={lockerQuantity}
+                      onChange={(e) => setLockerQuantity(parseInt(e.target.value) || 0)}
+                    />
+                  </div>
                 </div>
-                <p className="text-sm text-gray-600">Total Chairs</p>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">
-                  {transactions.reduce((sum, t) => sum + (t.locker_quantity || 0), 0)}
+
+                <div>
+                  <Label htmlFor="notes">Notes (Optional)</Label>
+                  <Textarea
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Any additional notes..."
+                    rows={3}
+                  />
                 </div>
-                <p className="text-sm text-gray-600">Total Lockers</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+
+                <Button onClick={handleCreateTransaction} className="w-full">
+                  Record {transactionType === 'distribution' ? 'Distribution' : 'Return'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Quick Stats */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Stats</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {transactions.filter(t => t.transaction_type === 'distribution').length}
+                    </div>
+                    <p className="text-sm text-gray-600">Total Distributions</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {transactions.filter(t => t.transaction_type === 'return').length}
+                    </div>
+                    <p className="text-sm text-gray-600">Total Returns</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {transactions.reduce((sum, t) => sum + (t.chair_quantity || 0), 0)}
+                    </div>
+                    <p className="text-sm text-gray-600">Total Chairs</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-orange-600">
+                      {transactions.reduce((sum, t) => sum + (t.locker_quantity || 0), 0)}
+                    </div>
+                    <p className="text-sm text-gray-600">Total Lockers</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="bulk">
+          <BulkFurnitureAssignment />
+        </TabsContent>
+      </Tabs>
 
       {/* Transaction History */}
       <Card>
