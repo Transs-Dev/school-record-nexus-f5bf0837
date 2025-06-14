@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -125,37 +124,92 @@ const StudentRecords = () => {
     if (!student.id) return;
 
     const confirmDelete = window.confirm(
-      `Are you sure you want to delete ${student.student_name}? This action cannot be undone and will also remove all associated examination records and fee data.`
+      `Are you sure you want to delete ${student.student_name}? This action cannot be undone and will also remove all associated examination records, fee data, book transactions, furniture transactions, and laboratory clearance records.`
     );
 
     if (!confirmDelete) return;
 
     try {
-      // Delete related examination marks first
-      await supabase
+      console.log('Starting deletion process for student:', student.id);
+
+      // Delete all related records in the correct order to avoid foreign key constraint violations
+      
+      // 1. Delete book transactions first
+      const { error: bookTransactionError } = await supabase
+        .from('book_transactions')
+        .delete()
+        .eq('student_id', student.id);
+
+      if (bookTransactionError) {
+        console.error('Error deleting book transactions:', bookTransactionError);
+        throw bookTransactionError;
+      }
+
+      // 2. Delete furniture transactions
+      const { error: furnitureTransactionError } = await supabase
+        .from('furniture_transactions')
+        .delete()
+        .eq('student_id', student.id);
+
+      if (furnitureTransactionError) {
+        console.error('Error deleting furniture transactions:', furnitureTransactionError);
+        throw furnitureTransactionError;
+      }
+
+      // 3. Delete laboratory clearance records
+      const { error: labClearanceError } = await supabase
+        .from('laboratory_clearance')
+        .delete()
+        .eq('student_id', student.id);
+
+      if (labClearanceError) {
+        console.error('Error deleting laboratory clearance:', labClearanceError);
+        throw labClearanceError;
+      }
+
+      // 4. Delete examination marks
+      const { error: examMarksError } = await supabase
         .from('examination_marks')
         .delete()
         .eq('student_id', student.id);
 
-      // Delete related fee records
-      await supabase
-        .from('student_fee_records')
-        .delete()
-        .eq('student_id', student.id);
+      if (examMarksError) {
+        console.error('Error deleting examination marks:', examMarksError);
+        throw examMarksError;
+      }
 
-      // Delete related fee payments
-      await supabase
+      // 5. Delete fee payments
+      const { error: feePaymentsError } = await supabase
         .from('fee_payments')
         .delete()
         .eq('student_id', student.id);
 
-      // Delete the student record
-      const { error } = await supabase
+      if (feePaymentsError) {
+        console.error('Error deleting fee payments:', feePaymentsError);
+        throw feePaymentsError;
+      }
+
+      // 6. Delete student fee records
+      const { error: studentFeeRecordsError } = await supabase
+        .from('student_fee_records')
+        .delete()
+        .eq('student_id', student.id);
+
+      if (studentFeeRecordsError) {
+        console.error('Error deleting student fee records:', studentFeeRecordsError);
+        throw studentFeeRecordsError;
+      }
+
+      // 7. Finally delete the student record
+      const { error: studentError } = await supabase
         .from('students')
         .delete()
         .eq('id', student.id);
 
-      if (error) throw error;
+      if (studentError) {
+        console.error('Error deleting student:', studentError);
+        throw studentError;
+      }
 
       // Update local state
       setStudents(prev => prev.filter(s => s.id !== student.id));
@@ -164,6 +218,8 @@ const StudentRecords = () => {
         title: "Student Deleted",
         description: `${student.student_name} has been removed from the system.`,
       });
+
+      console.log('Student deletion completed successfully');
 
     } catch (error) {
       console.error('Error deleting student:', error);
