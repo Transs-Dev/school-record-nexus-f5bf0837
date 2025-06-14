@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { fetchAllStudents, saveExaminationMarks, fetchExaminationMarks, type Student, type SubjectMark } from "@/utils/studentDatabase";
-import { fetchAllSubjects, type Subject } from "@/utils/subjectDatabase";
+import { fetchSubjects, type Subject } from "@/utils/subjectDatabase";
 
 const AcademicSection = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -27,7 +28,7 @@ const AcademicSection = () => {
         const studentsData = await fetchAllStudents();
         setStudents(studentsData);
 
-        const subjectsData = await fetchAllSubjects();
+        const subjectsData = await fetchSubjects();
         setSubjects(subjectsData);
       } catch (error) {
         console.error("Error loading data:", error);
@@ -138,7 +139,7 @@ const AcademicSection = () => {
         if (result.subject_marks) {
           try {
             if (Array.isArray(result.subject_marks)) {
-              parsedSubjectMarks = result.subject_marks as SubjectMark[];
+              parsedSubjectMarks = result.subject_marks as unknown as SubjectMark[];
             } else if (typeof result.subject_marks === 'string') {
               parsedSubjectMarks = JSON.parse(result.subject_marks);
             }
@@ -234,7 +235,7 @@ const AcademicSection = () => {
             <Label>Subject Marks</Label>
             {subjects.map(subject => (
               <div key={subject.id} className="grid grid-cols-2 gap-2 items-center">
-                <Label htmlFor={`subject-${subject.id}`}>{subject.subject_name}</Label>
+                <Label htmlFor={`subject-${subject.id}`}>{subject.label}</Label>
                 <Input
                   type="number"
                   id={`subject-${subject.id}`}
@@ -299,7 +300,7 @@ const AcademicSection = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         {result.subject_marks && result.subject_marks.map((mark, index) => (
                           <div key={index} className="text-sm text-gray-900">
-                            {subjects.find(subject => subject.id === mark.subject_id)?.subject_name}
+                            {subjects.find(subject => subject.id === mark.subject_id)?.label}
                           </div>
                         ))}
                       </td>
