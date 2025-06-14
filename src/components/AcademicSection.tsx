@@ -1,416 +1,329 @@
-
 import { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { BookOpen, Save, Search, Plus, Loader2 } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
-import {
-  fetchStudentsByGrade,
-  saveExaminationMarks,
-  fetchExaminationMarks,
-  type Student,
-  type ExaminationMark,
-} from "@/utils/studentDatabase";
-import { fetchSubjects, type Subject } from "@/utils/subjectDatabase";
-
-interface SubjectMark {
-  subject_id: string;
-  marks: number;
-}
-
-interface ExamData {
-  student_id: string;
-  grade: string;
-  term: string;
-  academic_year: string;
-  subject_marks: SubjectMark[];
-  total_marks: number;
-}
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { fetchAllStudents, saveExaminationMarks, fetchExaminationMarks, type Student, type SubjectMark } from "@/utils/studentDatabase";
+import { fetchAllSubjects, type Subject } from "@/utils/subjectDatabase";
 
 const AcademicSection = () => {
-  const [selectedGrade, setSelectedGrade] = useState("");
-  const [selectedTerm, setSelectedTerm] = useState("");
   const [students, setStudents] = useState<Student[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [marks, setMarks] = useState<Record<string, Record<string, number>>>({});
-  const [existingMarks, setExistingMarks] = useState<ExaminationMark[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const grades = [
-    "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5",
-    "Grade 6", "Grade 7", "Grade 8", "Grade 9",
-  ];
-
-  const terms = ["Term 1", "Term 2", "Term 3"];
-  const currentYear = new Date().getFullYear().toString();
+  const [selectedStudent, setSelectedStudent] = useState("");
+  const [selectedGrade, setSelectedGrade] = useState("");
+  const [selectedTerm, setSelectedTerm] = useState("");
+  const [academicYear, setAcademicYear] = useState(new Date().getFullYear().toString());
+  const [subjectMarks, setSubjectMarks] = useState<SubjectMark[]>([]);
+  const [remarks, setRemarks] = useState("");
+  const [results, setResults] = useState<any[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
-    loadSubjects();
-  }, []);
+    const loadData = async () => {
+      try {
+        const studentsData = await fetchAllStudents();
+        setStudents(studentsData);
 
-  useEffect(() => {
-    if (selectedGrade && selectedTerm) {
-      loadStudentsAndMarks();
-    }
-  }, [selectedGrade, selectedTerm, subjects]);
-
-  const loadSubjects = async () => {
-    try {
-      const subjectsData = await fetchSubjects();
-      setSubjects(subjectsData);
-    } catch (error) {
-      console.error("Error loading subjects:", error);
-      toast({
-        title: "Error Loading Subjects",
-        description: "Failed to load subjects. Please refresh the page.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const loadStudentsAndMarks = async () => {
-    try {
-      setLoading(true);
-      const studentsData = await fetchStudentsByGrade(selectedGrade);
-      setStudents(studentsData);
-      
-      const marksData = await fetchExaminationMarks(selectedGrade, selectedTerm, currentYear);
-      setExistingMarks(marksData);
-
-      const marksState: Record<string, Record<string, number>> = {};
-      
-      studentsData.forEach((student) => {
-        marksState[student.id] = {};
-        subjects.forEach((subject) => {
-          const existingExam = marksData.find(mark => mark.student_id === student.id);
-          if (existingExam && existingExam.subject_marks) {
-            // Properly type cast and handle the Json type
-            const subjectMarksArray = existingExam.subject_marks as SubjectMark[];
-            const subjectMark = Array.isArray(subjectMarksArray) 
-              ? subjectMarksArray.find(sm => sm.subject_id === subject.id)
-              : null;
-            marksState[student.id][subject.id] = subjectMark?.marks || 0;
-          } else {
-            marksState[student.id][subject.id] = 0;
-          }
-        });
-      });
-      
-      setMarks(marksState);
-    } catch (error) {
-      console.error("Error loading students and marks:", error);
-      toast({
-        title: "Error Loading Data",
-        description: "Failed to load students and marks. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleMarkChange = (studentId: string, subjectId: string, value: string) => {
-    const numValue = parseInt(value) || 0;
-    const subject = subjects.find(s => s.id === subjectId);
-    
-    if (!subject) return;
-
-    if (numValue > subject.max_marks) {
-      toast({
-        title: "Invalid Mark",
-        description: `Mark cannot exceed ${subject.max_marks} for ${subject.label}`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (numValue < 0) {
-      toast({
-        title: "Invalid Mark",
-        description: "Mark cannot be negative",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setMarks(prev => ({
-      ...prev,
-      [studentId]: {
-        ...prev[studentId],
-        [subjectId]: numValue,
-      },
-    }));
-  };
-
-  const calculateTotal = (studentId: string) => {
-    if (!marks[studentId]) return 0;
-    return Object.values(marks[studentId]).reduce((sum, mark) => sum + (mark || 0), 0);
-  };
-
-  const getGrade = (total: number) => {
-    const totalPossible = subjects.reduce((sum, subject) => sum + subject.max_marks, 0);
-    const percentage = totalPossible > 0 ? (total / totalPossible) * 100 : 0;
-
-    if (percentage >= 80) return "A";
-    if (percentage >= 70) return "B";
-    if (percentage >= 60) return "C";
-    if (percentage >= 50) return "D";
-    return "F";
-  };
-
-  const saveMarks = async () => {
-    if (!selectedGrade || !selectedTerm) {
-      toast({
-        title: "Selection Required",
-        description: "Please select both grade and term before saving marks.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (students.length === 0) {
-      toast({
-        title: "No Students",
-        description: "There are no students in the selected grade.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setSaving(true);
-      let savedCount = 0;
-      let errorCount = 0;
-
-      for (const student of students) {
-        try {
-          const studentMarks = marks[student.id] || {};
-          const total = calculateTotal(student.id);
-
-          const subjectMarksData = Object.entries(studentMarks).map(
-            ([subjectId, mark]) => ({
-              subject_id: subjectId,
-              marks: mark,
-            })
-          );
-
-          const examData: ExamData = {
-            student_id: student.id,
-            grade: selectedGrade,
-            term: selectedTerm,
-            academic_year: currentYear,
-            subject_marks: subjectMarksData,
-            total_marks: total,
-          };
-
-          await saveExaminationMarks(examData);
-          savedCount++;
-        } catch (error) {
-          console.error(
-            `Error saving marks for student ${student.student_name}:`,
-            error
-          );
-          errorCount++;
-        }
-      }
-
-      if (savedCount > 0) {
+        const subjectsData = await fetchAllSubjects();
+        setSubjects(subjectsData);
+      } catch (error) {
+        console.error("Error loading data:", error);
         toast({
-          title: "Marks Saved",
-          description: `Successfully saved marks for ${savedCount} student(s). ${
-            errorCount > 0 ? `${errorCount} failed.` : ""
-          }`,
-        });
-        await loadStudentsAndMarks();
-      } else {
-        toast({
-          title: "Save Failed",
-          description: "No marks were saved. Please check your input and try again.",
+          title: "Error",
+          description: "Failed to load students or subjects",
           variant: "destructive",
         });
       }
-    } catch (error) {
-      console.error("Error saving marks:", error);
+    };
+
+    loadData();
+  }, [toast]);
+
+  useEffect(() => {
+    loadResults();
+  }, [selectedGrade, selectedTerm, academicYear, toast]);
+
+  const handleStudentChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedStudent(event.target.value);
+  };
+
+  const handleGradeChange = (value: string) => {
+    setSelectedGrade(value);
+  };
+
+  const handleTermChange = (value: string) => {
+    setSelectedTerm(value);
+  };
+
+  const handleAcademicYearChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setAcademicYear(event.target.value);
+  };
+
+  const handleSubjectMarkChange = (subjectId: string, value: string) => {
+    const marks = parseInt(value);
+    setSubjectMarks(prevMarks => {
+      const existingMarkIndex = prevMarks.findIndex(mark => mark.subject_id === subjectId);
+      if (existingMarkIndex !== -1) {
+        const newMarks = [...prevMarks];
+        newMarks[existingMarkIndex] = { subject_id: subjectId, marks: marks };
+        return newMarks;
+      } else {
+        return [...prevMarks, { subject_id: subjectId, marks: marks }];
+      }
+    });
+  };
+
+  const handleRemarksChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setRemarks(event.target.value);
+  };
+
+  const calculateTotalMarks = () => {
+    return subjectMarks.reduce((total, mark) => total + mark.marks, 0);
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedStudent || !selectedGrade || !selectedTerm || !academicYear) {
       toast({
-        title: "Error Saving Marks",
-        description: "An unexpected error occurred while saving marks.",
+        title: "Error",
+        description: "Please fill in all fields",
         variant: "destructive",
       });
-    } finally {
-      setSaving(false);
+      return;
+    }
+
+    const totalMarks = calculateTotalMarks();
+
+    try {
+      await saveExaminationMarks({
+        student_id: selectedStudent,
+        grade: selectedGrade,
+        term: selectedTerm,
+        academic_year: academicYear,
+        subject_marks: subjectMarks,
+        total_marks: totalMarks,
+        remarks: remarks
+      });
+
+      toast({
+        title: "Success",
+        description: "Examination marks saved successfully",
+      });
+
+      loadResults();
+    } catch (error) {
+      console.error("Error saving examination marks:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save examination marks",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loadResults = async () => {
+    if (!selectedGrade || !selectedTerm) return;
+    
+    try {
+      const examResults = await fetchExaminationMarks(selectedGrade, selectedTerm, academicYear);
+      const studentsData = await fetchAllStudents();
+      
+      const resultsWithStudentInfo = examResults.map(result => {
+        const student = studentsData.find(s => s.id === result.student_id);
+        
+        // Safely handle the Json type conversion
+        let parsedSubjectMarks: SubjectMark[] = [];
+        if (result.subject_marks) {
+          try {
+            if (Array.isArray(result.subject_marks)) {
+              parsedSubjectMarks = result.subject_marks as SubjectMark[];
+            } else if (typeof result.subject_marks === 'string') {
+              parsedSubjectMarks = JSON.parse(result.subject_marks);
+            }
+          } catch (error) {
+            console.error("Error parsing subject marks:", error);
+            parsedSubjectMarks = [];
+          }
+        }
+        
+        return {
+          ...result,
+          student_name: student?.student_name || "Unknown",
+          registration_number: student?.registration_number || "Unknown",
+          subject_marks: parsedSubjectMarks
+        };
+      });
+      
+      setResults(resultsWithStudentInfo);
+    } catch (error) {
+      console.error("Error loading results:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load results",
+        variant: "destructive",
+      });
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto p-4">
       <Card>
         <CardHeader>
-          <CardTitle>Academic Records</CardTitle>
-          <CardDescription>Manage student examination marks</CardDescription>
+          <CardTitle>Examination Marks</CardTitle>
+          <CardDescription>Enter examination marks for students</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <CardContent className="grid gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="student">Student</Label>
+              <Select onValueChange={setSelectedStudent}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a student" />
+                </SelectTrigger>
+                <SelectContent>
+                  {students.map(student => (
+                    <SelectItem key={student.id} value={student.id}>{student.student_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <Label htmlFor="grade">Grade</Label>
-              <Select
-                value={selectedGrade}
-                onValueChange={(value) => {
-                  setSelectedGrade(value);
-                  setMarks({});
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select grade" />
+              <Select onValueChange={handleGradeChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a grade" />
                 </SelectTrigger>
                 <SelectContent>
-                  {grades.map((grade) => (
-                    <SelectItem key={grade} value={grade}>
-                      {grade}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="Grade 1">Grade 1</SelectItem>
+                  <SelectItem value="Grade 2">Grade 2</SelectItem>
+                  <SelectItem value="Grade 3">Grade 3</SelectItem>
+                  <SelectItem value="Grade 4">Grade 4</SelectItem>
+                  <SelectItem value="Grade 5">Grade 5</SelectItem>
+                  <SelectItem value="Grade 6">Grade 6</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="term">Term</Label>
+              <Select onValueChange={handleTermChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a term" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Term 1">Term 1</SelectItem>
+                  <SelectItem value="Term 2">Term 2</SelectItem>
+                  <SelectItem value="Term 3">Term 3</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label htmlFor="term">Term</Label>
-              <Select
-                value={selectedTerm}
-                onValueChange={(value) => {
-                  setSelectedTerm(value);
-                  setMarks({});
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select term" />
-                </SelectTrigger>
-                <SelectContent>
-                  {terms.map((term) => (
-                    <SelectItem key={term} value={term}>
-                      {term}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-end">
-              <Button onClick={loadStudentsAndMarks} disabled={!selectedGrade || !selectedTerm}>
-                <Search className="mr-2 h-4 w-4" />
-                Load Students
-              </Button>
+              <Label htmlFor="academicYear">Academic Year</Label>
+              <Input
+                type="number"
+                id="academicYear"
+                value={academicYear}
+                onChange={handleAcademicYearChange}
+              />
             </div>
           </div>
-
-          {loading && (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-          )}
-
-          {!loading && students.length > 0 && (
-            <>
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Student</TableHead>
-                      {subjects.map((subject) => (
-                        <TableHead key={subject.id}>
-                          {subject.label} ({subject.max_marks})
-                        </TableHead>
-                      ))}
-                      <TableHead>Total</TableHead>
-                      <TableHead>Grade</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {students.map((student) => {
-                      const total = calculateTotal(student.id);
-                      const grade = getGrade(total);
-                      return (
-                        <TableRow key={student.id}>
-                          <TableCell className="font-medium">
-                            {student.student_name}
-                          </TableCell>
-                          {subjects.map((subject) => (
-                            <TableCell key={`${student.id}-${subject.id}`}>
-                              <Input
-                                type="number"
-                                min="0"
-                                max={subject.max_marks}
-                                value={marks[student.id]?.[subject.id] || 0}
-                                onChange={(e) =>
-                                  handleMarkChange(student.id, subject.id, e.target.value)
-                                }
-                                className="w-20"
-                              />
-                            </TableCell>
-                          ))}
-                          <TableCell>{total}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                grade === "A"
-                                  ? "default"
-                                  : grade === "F"
-                                  ? "destructive"
-                                  : "secondary"
-                              }
-                            >
-                              {grade}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+          <div>
+            <Label>Subject Marks</Label>
+            {subjects.map(subject => (
+              <div key={subject.id} className="grid grid-cols-2 gap-2 items-center">
+                <Label htmlFor={`subject-${subject.id}`}>{subject.subject_name}</Label>
+                <Input
+                  type="number"
+                  id={`subject-${subject.id}`}
+                  onChange={(e) => handleSubjectMarkChange(subject.id, e.target.value)}
+                />
               </div>
-              <div className="mt-4 flex justify-end">
-                <Button onClick={saveMarks} disabled={saving}>
-                  {saving ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
-                  Save Marks
-                </Button>
-              </div>
-            </>
-          )}
-
-          {!loading && students.length === 0 && selectedGrade && selectedTerm && (
-            <div className="text-center py-8 text-muted-foreground">
-              <BookOpen className="mx-auto h-8 w-8" />
-              <p className="mt-2">No students found for {selectedGrade} - {selectedTerm}</p>
-            </div>
-          )}
+            ))}
+          </div>
+          <div>
+            <Label htmlFor="remarks">Remarks</Label>
+            <Textarea
+              id="remarks"
+              placeholder="Enter remarks"
+              value={remarks}
+              onChange={handleRemarksChange}
+            />
+          </div>
+          <Button onClick={handleSubmit}>Save Marks</Button>
         </CardContent>
       </Card>
+
+      {results.length > 0 && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Examination Results</CardTitle>
+            <CardDescription>Results for {selectedGrade}, {selectedTerm}, {academicYear}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Registration Number
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Subject
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Marks
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total Marks
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Remarks
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {results.map((result) => (
+                    <tr key={result.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{result.registration_number}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{result.student_name}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {result.subject_marks && result.subject_marks.map((mark, index) => (
+                          <div key={index} className="text-sm text-gray-900">
+                            {subjects.find(subject => subject.id === mark.subject_id)?.subject_name}
+                          </div>
+                        ))}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {result.subject_marks && result.subject_marks.map((mark, index) => (
+                          <div key={index} className="text-sm text-gray-900">
+                            {mark.marks}
+                          </div>
+                        ))}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{result.total_marks}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{result.remarks}</div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
