@@ -35,6 +35,9 @@ export const addStudent = async (student: Omit<Student, "id" | "created_at" | "u
   return data;
 };
 
+// Export insertStudent as an alias for addStudent for backward compatibility
+export const insertStudent = addStudent;
+
 export const fetchAllStudents = async (): Promise<Student[]> => {
   const { data, error } = await supabase
     .from("students")
@@ -100,7 +103,7 @@ export const saveExaminationMarks = async (examData: ExamData): Promise<Examinat
       grade: examData.grade,
       term: examData.term,
       academic_year: examData.academic_year,
-      subject_marks: examData.subject_marks,
+      subject_marks: examData.subject_marks as any,
       total_marks: examData.total_marks,
       remarks: examData.remarks
     })
@@ -161,4 +164,86 @@ export const getStudentCountByGrade = async (): Promise<Record<string, number>> 
   });
 
   return gradeCount;
+};
+
+// Add missing functions that other components are trying to import
+export const calculateStudentPosition = async (studentId: string, grade: string, term: string, academicYear: string): Promise<number> => {
+  try {
+    // First get the student's total marks
+    const { data: studentMark, error: studentError } = await supabase
+      .from("examination_marks")
+      .select("total_marks")
+      .eq("student_id", studentId)
+      .eq("grade", grade)
+      .eq("term", term)
+      .eq("academic_year", academicYear)
+      .single();
+
+    if (studentError || !studentMark) {
+      console.error("Error fetching student marks:", studentError);
+      return 0;
+    }
+
+    // Get all students' marks for the same grade, term, and academic year
+    const { data: allMarks, error: allMarksError } = await supabase
+      .from("examination_marks")
+      .select("total_marks")
+      .eq("grade", grade)
+      .eq("term", term)
+      .eq("academic_year", academicYear)
+      .order("total_marks", { ascending: false });
+
+    if (allMarksError) {
+      console.error("Error fetching all marks:", allMarksError);
+      return 0;
+    }
+
+    // Calculate position
+    const position = (allMarks || []).findIndex(mark => mark.total_marks <= studentMark.total_marks) + 1;
+    return position || 1;
+  } catch (error) {
+    console.error("Error calculating student position:", error);
+    return 0;
+  }
+};
+
+export const printStudentList = async (students: Student[]): Promise<void> => {
+  // Create a simple printable version
+  const printContent = students.map(student => 
+    `${student.registration_number} - ${student.student_name} (${student.grade})`
+  ).join('\n');
+  
+  const printWindow = window.open('', '_blank');
+  if (printWindow) {
+    printWindow.document.write(`
+      <html>
+        <head><title>Student List</title></head>
+        <body>
+          <h1>Student List</h1>
+          <pre>${printContent}</pre>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  }
+};
+
+export const downloadStudentList = async (students: Student[]): Promise<void> => {
+  const csvContent = [
+    'Registration Number,Student Name,Grade,Date of Birth,Parent Name,Primary Contact',
+    ...students.map(student => 
+      `${student.registration_number},${student.student_name},${student.grade},${student.date_of_birth},${student.parent_name},${student.primary_contact}`
+    )
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'student_list.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
 };
