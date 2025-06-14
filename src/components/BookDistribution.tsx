@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { BookOpen, Plus } from "lucide-react";
 import { fetchAllStudents, Student } from "@/utils/studentDatabase";
-import { getBookStock, createBookTransaction, BookStock } from "@/utils/bookDatabase";
+import { getBookStockByGrade, createBookTransaction, BookStock } from "@/utils/bookDatabase";
 
 interface BookDistributionProps {
   onTransactionComplete: () => void;
@@ -27,23 +27,44 @@ const BookDistribution = ({ onTransactionComplete }: BookDistributionProps) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    loadData();
+    loadStudents();
   }, []);
 
-  const loadData = async () => {
+  // Load grade-specific books when grade is selected
+  useEffect(() => {
+    if (selectedGrade) {
+      loadBooksForGrade(selectedGrade);
+    } else {
+      setBooks([]);
+    }
+    // Reset book selection when grade changes
+    setSelectedBook("");
+  }, [selectedGrade]);
+
+  const loadStudents = async () => {
     try {
-      const [studentsData, booksData] = await Promise.all([
-        fetchAllStudents(),
-        getBookStock()
-      ]);
-      
+      const studentsData = await fetchAllStudents();
       setStudents(studentsData);
-      setBooks(booksData.filter(book => book.available_quantity > 0));
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading students:', error);
       toast({
         title: "Error",
-        description: "Failed to load data",
+        description: "Failed to load students",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loadBooksForGrade = async (grade: string) => {
+    try {
+      const booksData = await getBookStockByGrade(grade);
+      // Only show books with available quantity > 0
+      setBooks(booksData.filter(book => book.available_quantity > 0));
+    } catch (error) {
+      console.error('Error loading books for grade:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load books for selected grade",
         variant: "destructive",
       });
     }
@@ -60,6 +81,12 @@ const BookDistribution = ({ onTransactionComplete }: BookDistributionProps) => {
 
   const getSelectedBook = () => {
     return books.find(book => book.id === selectedBook);
+  };
+
+  const handleGradeChange = (grade: string) => {
+    setSelectedGrade(grade);
+    // Reset student selection when grade changes
+    setSelectedStudent("");
   };
 
   const handleDistribution = async () => {
@@ -116,7 +143,7 @@ const BookDistribution = ({ onTransactionComplete }: BookDistributionProps) => {
       setNotes("");
       
       // Reload data and notify parent
-      loadData();
+      loadStudents();
       onTransactionComplete();
     } catch (error) {
       console.error('Error distributing book:', error);
@@ -143,16 +170,19 @@ const BookDistribution = ({ onTransactionComplete }: BookDistributionProps) => {
       <CardContent className="space-y-4">
         {/* Available Books Display */}
         <div className="bg-blue-50 p-4 rounded-lg">
-          <h4 className="font-medium text-blue-800 mb-2">Available Books</h4>
+          <h4 className="font-medium text-blue-800 mb-2">Grade-Based Book Distribution</h4>
           <div className="text-sm text-blue-700">
-            {books.length} books available for distribution
+            {selectedGrade 
+              ? `${books.length} books available for ${selectedGrade}`
+              : "Select a grade to view available books"
+            }
           </div>
         </div>
 
         {/* Grade Selection */}
         <div>
           <Label htmlFor="grade-select">Select Grade</Label>
-          <Select value={selectedGrade} onValueChange={setSelectedGrade}>
+          <Select value={selectedGrade} onValueChange={handleGradeChange}>
             <SelectTrigger>
               <SelectValue placeholder="Choose a grade" />
             </SelectTrigger>
@@ -185,22 +215,29 @@ const BookDistribution = ({ onTransactionComplete }: BookDistributionProps) => {
           </div>
         )}
 
-        {/* Book Selection */}
-        <div>
-          <Label htmlFor="book-select">Select Book</Label>
-          <Select value={selectedBook} onValueChange={setSelectedBook}>
-            <SelectTrigger>
-              <SelectValue placeholder="Choose a book" />
-            </SelectTrigger>
-            <SelectContent>
-              {books.map((book) => (
-                <SelectItem key={book.id} value={book.id}>
-                  {book.book_title} {book.author && `by ${book.author}`} (Available: {book.available_quantity})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Book Selection - Only show if grade is selected */}
+        {selectedGrade && (
+          <div>
+            <Label htmlFor="book-select">Select Book (Grade: {selectedGrade})</Label>
+            <Select value={selectedBook} onValueChange={setSelectedBook}>
+              <SelectTrigger>
+                <SelectValue placeholder={books.length > 0 ? "Choose a book" : "No books available for this grade"} />
+              </SelectTrigger>
+              <SelectContent>
+                {books.map((book) => (
+                  <SelectItem key={book.id} value={book.id}>
+                    {book.book_title} {book.author && `by ${book.author}`} (Available: {book.available_quantity})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {books.length === 0 && selectedGrade && (
+              <p className="text-sm text-orange-600 mt-1">
+                No books assigned to {selectedGrade}. Please add books for this grade first.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Book Details */}
         {selectedBookData && (
@@ -210,26 +247,29 @@ const BookDistribution = ({ onTransactionComplete }: BookDistributionProps) => {
               <div><strong>Title:</strong> {selectedBookData.book_title}</div>
               {selectedBookData.author && <div><strong>Author:</strong> {selectedBookData.author}</div>}
               {selectedBookData.isbn && <div><strong>ISBN:</strong> {selectedBookData.isbn}</div>}
+              <div><strong>Grade:</strong> {selectedBookData.grade || 'Unassigned'}</div>
               <div><strong>Available:</strong> {selectedBookData.available_quantity}</div>
             </div>
           </div>
         )}
 
         {/* Quantity */}
-        <div>
-          <Label htmlFor="quantity">Quantity</Label>
-          <Input
-            id="quantity"
-            type="number"
-            min="1"
-            max={selectedBookData?.available_quantity || 1}
-            value={quantity}
-            onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Max: {selectedBookData?.available_quantity || 0}
-          </p>
-        </div>
+        {selectedBook && (
+          <div>
+            <Label htmlFor="quantity">Quantity</Label>
+            <Input
+              id="quantity"
+              type="number"
+              min="1"
+              max={selectedBookData?.available_quantity || 1}
+              value={quantity}
+              onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Max: {selectedBookData?.available_quantity || 0}
+            </p>
+          </div>
+        )}
 
         {/* Notes */}
         <div>
