@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,9 +11,10 @@ import {
   UserPlus, 
   FileText,
   RotateCcw,
-  Key,
-  Play
+  Play,
+  Menu
 } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import StudentEnrollment from "@/components/StudentEnrollment";
 import StudentRecords from "@/components/StudentRecords";
 import AcademicSection from "@/components/AcademicSection";
@@ -23,13 +25,14 @@ import ResultsSection from "@/components/ResultsSection";
 import PinProtection from "@/components/PinProtection";
 import ChangePinDialog from "@/components/ChangePinDialog";
 import TourGuide from "@/components/TourGuide";
+import Overview from "@/components/Overview";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [showTour, setShowTour] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    // Show tour on page load/refresh
     const hasSeenTour = sessionStorage.getItem('hasSeenTour');
     if (!hasSeenTour) {
       setShowTour(true);
@@ -49,6 +52,36 @@ const Index = () => {
     }
     return content;
   };
+
+  const tabs = [
+    { value: "overview", label: "Overview", icon: TrendingUp },
+    { value: "enrollment", label: "Enrollment", icon: UserPlus },
+    { value: "records", label: "Records", icon: Users },
+    { value: "academic", label: "Academic", icon: BookOpen },
+    { value: "fees", label: "Fees", icon: DollarSign },
+    { value: "results", label: "Results", icon: FileText },
+    { value: "subjects", label: "Subjects", icon: BookOpen },
+    { value: "system", label: "System", icon: RotateCcw },
+  ];
+
+  const TabsList = () => (
+    <div className="grid grid-cols-3 lg:grid-cols-8 h-auto p-1">
+      {tabs.map((tab) => (
+        <Button
+          key={tab.value}
+          variant={activeTab === tab.value ? "default" : "ghost"}
+          onClick={() => {
+            setActiveTab(tab.value);
+            setIsMobileMenuOpen(false);
+          }}
+          className="flex items-center space-x-2 p-3"
+        >
+          <tab.icon className="w-4 h-4" />
+          <span className="hidden sm:inline">{tab.label}</span>
+        </Button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
@@ -87,163 +120,43 @@ const Index = () => {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="grid grid-cols-3 lg:grid-cols-8 h-auto p-1">
-                <TabsTrigger value="overview" className="flex items-center space-x-2 p-3">
-                  <TrendingUp className="w-4 h-4" />
-                  <span className="hidden sm:inline">Overview</span>
-                </TabsTrigger>
-                <TabsTrigger value="enrollment" className="flex items-center space-x-2 p-3">
-                  <UserPlus className="w-4 h-4" />
-                  <span className="hidden sm:inline">Enrollment</span>
-                </TabsTrigger>
-                <TabsTrigger value="records" className="flex items-center space-x-2 p-3">
-                  <Users className="w-4 h-4" />
-                  <span className="hidden sm:inline">Records</span>
-                </TabsTrigger>
-                <TabsTrigger value="academic" className="flex items-center space-x-2 p-3">
-                  <BookOpen className="w-4 h-4" />
-                  <span className="hidden sm:inline">Academic</span>
-                </TabsTrigger>
-                <TabsTrigger value="fees" className="flex items-center space-x-2 p-3">
-                  <DollarSign className="w-4 h-4" />
-                  <span className="hidden sm:inline">Fees</span>
-                </TabsTrigger>
-                <TabsTrigger value="results" className="flex items-center space-x-2 p-3">
-                  <FileText className="w-4 h-4" />
-                  <span className="hidden sm:inline">Results</span>
-                </TabsTrigger>
-                <TabsTrigger value="subjects" className="flex items-center space-x-2 p-3">
-                  <BookOpen className="w-4 h-4" />
-                  <span className="hidden sm:inline">Subjects</span>
-                </TabsTrigger>
-                <TabsTrigger value="system" className="flex items-center space-x-2 p-3">
-                  <RotateCcw className="w-4 h-4" />
-                  <span className="hidden sm:inline">System</span>
-                </TabsTrigger>
-              </TabsList>
+              {/* Desktop Navigation */}
+              <div className="hidden lg:block">
+                <TabsList />
+              </div>
+
+              {/* Mobile Navigation */}
+              <div className="lg:hidden">
+                <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start">
+                      <Menu className="w-4 h-4 mr-2" />
+                      Navigation Menu
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-80">
+                    <div className="space-y-2 mt-6">
+                      {tabs.map((tab) => (
+                        <Button
+                          key={tab.value}
+                          variant={activeTab === tab.value ? "default" : "ghost"}
+                          onClick={() => {
+                            setActiveTab(tab.value);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          className="w-full justify-start"
+                        >
+                          <tab.icon className="w-4 h-4 mr-2" />
+                          {tab.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </SheetContent>
+                </Sheet>
+              </div>
 
               <TabsContent value="overview" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total Students</CardTitle>
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">--</div>
-                      <p className="text-xs text-muted-foreground">
-                        Enrolled students
-                      </p>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Active Grades</CardTitle>
-                      <BookOpen className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">9</div>
-                      <p className="text-xs text-muted-foreground">
-                        Grade 1 to Grade 9
-                      </p>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Fee Collection</CardTitle>
-                      <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">--</div>
-                      <p className="text-xs text-muted-foreground">
-                        This academic year
-                      </p>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Current Term</CardTitle>
-                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">Term 1</div>
-                      <p className="text-xs text-muted-foreground">
-                        Academic Year 2025
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Quick Actions</CardTitle>
-                      <CardDescription>Common tasks and shortcuts</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <Button 
-                        onClick={() => setActiveTab("enrollment")} 
-                        className="w-full justify-start"
-                        variant="outline"
-                      >
-                        <UserPlus className="w-4 h-4 mr-2" />
-                        Enroll New Student
-                      </Button>
-                      <Button 
-                        onClick={() => setActiveTab("academic")} 
-                        className="w-full justify-start"
-                        variant="outline"
-                      >
-                        <BookOpen className="w-4 h-4 mr-2" />
-                        Enter Marks
-                      </Button>
-                      <Button 
-                        onClick={() => setActiveTab("fees")} 
-                        className="w-full justify-start"
-                        variant="outline"
-                      >
-                        <DollarSign className="w-4 h-4 mr-2" />
-                        Record Fee Payment
-                      </Button>
-                      <Button 
-                        onClick={() => setActiveTab("results")} 
-                        className="w-full justify-start"
-                        variant="outline"
-                      >
-                        <FileText className="w-4 h-4 mr-2" />
-                        View Results
-                      </Button>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>System Status</CardTitle>
-                      <CardDescription>Current system information</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Database</span>
-                        <span className="text-sm font-medium text-green-600">Connected</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Security</span>
-                        <span className="text-sm font-medium text-green-600">PIN Protected</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Subjects</span>
-                        <span className="text-sm font-medium text-blue-600">Database Synced</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Currency</span>
-                        <span className="text-sm font-medium text-blue-600">Zambian Kwacha (ZMW)</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                <Overview onTabChange={setActiveTab} />
               </TabsContent>
 
               <TabsContent value="enrollment" className="space-y-4">
@@ -282,7 +195,6 @@ const Index = () => {
           <TourGuide 
             isOpen={showTour} 
             onClose={() => setShowTour(false)}
-            currentTab={activeTab}
           />
         )}
       </div>

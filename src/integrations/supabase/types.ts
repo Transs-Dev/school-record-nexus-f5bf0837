@@ -13,16 +13,11 @@ export type Database = {
         Row: {
           academic_year: string
           created_at: string
-          english: number | null
           grade: string
           id: string
-          ire_cre: number | null
-          kiswahili: number | null
-          mathematics: number | null
           remarks: string | null
-          science: number | null
-          social_studies: number | null
           student_id: string
+          subject_marks: Json | null
           term: string
           total_marks: number | null
           updated_at: string
@@ -30,16 +25,11 @@ export type Database = {
         Insert: {
           academic_year?: string
           created_at?: string
-          english?: number | null
           grade: string
           id?: string
-          ire_cre?: number | null
-          kiswahili?: number | null
-          mathematics?: number | null
           remarks?: string | null
-          science?: number | null
-          social_studies?: number | null
           student_id: string
+          subject_marks?: Json | null
           term: string
           total_marks?: number | null
           updated_at?: string
@@ -47,29 +37,16 @@ export type Database = {
         Update: {
           academic_year?: string
           created_at?: string
-          english?: number | null
           grade?: string
           id?: string
-          ire_cre?: number | null
-          kiswahili?: number | null
-          mathematics?: number | null
           remarks?: string | null
-          science?: number | null
-          social_studies?: number | null
           student_id?: string
+          subject_marks?: Json | null
           term?: string
           total_marks?: number | null
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "examination_marks_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       fee_configuration: {
         Row: {
@@ -267,6 +244,38 @@ export type Database = {
         }
         Relationships: []
       }
+      subject_marks: {
+        Row: {
+          created_at: string | null
+          exam_id: string | null
+          id: string
+          marks: number | null
+          subject_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          exam_id?: string | null
+          id?: string
+          marks?: number | null
+          subject_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          exam_id?: string | null
+          id?: string
+          marks?: number | null
+          subject_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subject_marks_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subjects: {
         Row: {
           created_at: string
@@ -311,6 +320,14 @@ export type Database = {
       generate_registration_number: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      reset_registration_sequence: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      reset_school_system: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
     }
     Enums: {
