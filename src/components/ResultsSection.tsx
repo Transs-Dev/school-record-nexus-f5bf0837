@@ -13,12 +13,21 @@ import {
   type Student,
   type ExaminationMark 
 } from "@/utils/studentDatabase";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Subject {
+  id: string;
+  key: string;
+  label: string;
+  max_marks: number;
+}
 
 const ResultsSection = () => {
   const [selectedGrade, setSelectedGrade] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("");
   const [students, setStudents] = useState<Student[]>([]);
   const [examResults, setExamResults] = useState<ExaminationMark[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(false);
 
   const grades = [
@@ -29,19 +38,9 @@ const ResultsSection = () => {
   const terms = ["Term 1", "Term 2", "Term 3"];
   const currentYear = new Date().getFullYear().toString();
 
-  const subjects = [
-    { key: "agriculture", label: "Agriculture" },
-    { key: "biology", label: "Biology" },
-    { key: "business_studies", label: "Business Studies" },
-    { key: "chemistry", label: "Chemistry" },
-    { key: "english", label: "English" },
-    { key: "geography", label: "Geography" },
-    { key: "history", label: "History" },
-    { key: "ire_cre", label: "IRE/CRE" },
-    { key: "kiswahili", label: "Kiswahili" },
-    { key: "mathematics", label: "Mathematics" },
-    { key: "physics", label: "Physics" }
-  ];
+  useEffect(() => {
+    fetchSubjects();
+  }, []);
 
   useEffect(() => {
     if (selectedGrade && selectedTerm) {
@@ -51,6 +50,41 @@ const ResultsSection = () => {
       setExamResults([]);
     }
   }, [selectedGrade, selectedTerm]);
+
+  const fetchSubjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('subjects')
+        .select('*')
+        .order('label');
+
+      if (error) throw error;
+
+      setSubjects(data || []);
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+      toast({
+        title: "Error Loading Subjects",
+        description: "Failed to load subjects from database. Using default subjects.",
+        variant: "destructive"
+      });
+      
+      // Fallback to default subjects if database fetch fails
+      setSubjects([
+        { id: "1", key: "agriculture", label: "Agriculture", max_marks: 100 },
+        { id: "2", key: "biology", label: "Biology", max_marks: 100 },
+        { id: "3", key: "business_studies", label: "Business Studies", max_marks: 100 },
+        { id: "4", key: "chemistry", label: "Chemistry", max_marks: 100 },
+        { id: "5", key: "english", label: "English", max_marks: 100 },
+        { id: "6", key: "geography", label: "Geography", max_marks: 100 },
+        { id: "7", key: "history", label: "History", max_marks: 100 },
+        { id: "8", key: "ire_cre", label: "IRE/CRE", max_marks: 100 },
+        { id: "9", key: "kiswahili", label: "Kiswahili", max_marks: 100 },
+        { id: "10", key: "mathematics", label: "Mathematics", max_marks: 100 },
+        { id: "11", key: "physics", label: "Physics", max_marks: 100 }
+      ]);
+    }
+  };
 
   const loadResults = async () => {
     try {
@@ -120,10 +154,11 @@ const ResultsSection = () => {
     return "outline";
   };
 
-  const getMarksBadgeVariant = (marks: number) => {
-    if (marks >= 80) return "default";
-    if (marks >= 60) return "secondary";
-    if (marks >= 40) return "outline";
+  const getMarksBadgeVariant = (marks: number, maxMarks: number = 100) => {
+    const percentage = (marks / maxMarks) * 100;
+    if (percentage >= 80) return "default";
+    if (percentage >= 60) return "secondary";
+    if (percentage >= 40) return "outline";
     return "destructive";
   };
 
@@ -231,7 +266,7 @@ const ResultsSection = () => {
                           const marks = getSubjectMark(result, subject.key);
                           return (
                             <TableCell key={subject.key} className="text-center">
-                              <Badge variant={getMarksBadgeVariant(marks)}>
+                              <Badge variant={getMarksBadgeVariant(marks, subject.max_marks)}>
                                 {marks}
                               </Badge>
                             </TableCell>
@@ -239,7 +274,7 @@ const ResultsSection = () => {
                         })}
                         <TableCell className="text-center">
                           <Badge 
-                            variant={getMarksBadgeVariant((result.total_marks || 0) / subjects.length)}
+                            variant={getMarksBadgeVariant(result.total_marks || 0, subjects.reduce((sum, subject) => sum + subject.max_marks, 0))}
                             className="text-lg font-bold"
                           >
                             {result.total_marks || 0}

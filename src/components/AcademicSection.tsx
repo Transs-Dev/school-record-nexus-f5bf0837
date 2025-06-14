@@ -9,10 +9,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { fetchStudentsByGrade, saveExaminationMarks, type Student, type SubjectMark } from "@/utils/studentDatabase";
+import { supabase } from "@/integrations/supabase/client";
 import ResultsSection from "./ResultsSection";
+
+interface Subject {
+  id: string;
+  key: string;
+  label: string;
+  max_marks: number;
+}
 
 const AcademicSection = () => {
   const [students, setStudents] = useState<Student[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [selectedGrade, setSelectedGrade] = useState("");
   const [selectedStudent, setSelectedStudent] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("");
@@ -20,27 +29,17 @@ const AcademicSection = () => {
   const [subjectMarks, setSubjectMarks] = useState<Record<string, number>>({});
   const [remarks, setRemarks] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-
-  // Define all subjects in the order requested
-  const subjects = [
-    { key: "agriculture", label: "Agriculture" },
-    { key: "biology", label: "Biology" },
-    { key: "business_studies", label: "Business Studies" },
-    { key: "chemistry", label: "Chemistry" },
-    { key: "english", label: "English" },
-    { key: "geography", label: "Geography" },
-    { key: "history", label: "History" },
-    { key: "ire_cre", label: "IRE/CRE" },
-    { key: "kiswahili", label: "Kiswahili" },
-    { key: "mathematics", label: "Mathematics" },
-    { key: "physics", label: "Physics" }
-  ];
 
   const grades = [
     "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5",
     "Grade 6", "Grade 7", "Grade 8", "Grade 9"
   ];
+
+  useEffect(() => {
+    fetchSubjects();
+  }, []);
 
   useEffect(() => {
     if (selectedGrade) {
@@ -50,6 +49,29 @@ const AcademicSection = () => {
       setSelectedStudent("");
     }
   }, [selectedGrade]);
+
+  const fetchSubjects = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('subjects')
+        .select('*')
+        .order('label');
+
+      if (error) throw error;
+
+      setSubjects(data || []);
+    } catch (error) {
+      console.error("Error fetching subjects:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load subjects from database",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadStudentsByGrade = async () => {
     try {
@@ -78,6 +100,10 @@ const AcademicSection = () => {
 
   const calculateTotalMarks = () => {
     return Object.values(subjectMarks).reduce((total, mark) => total + mark, 0);
+  };
+
+  const calculateMaxPossibleMarks = () => {
+    return subjects.reduce((total, subject) => total + subject.max_marks, 0);
   };
 
   const handleSubmit = async () => {
@@ -173,6 +199,21 @@ const AcademicSection = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="container mx-auto p-4">
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p>Loading subjects...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-4">
       <Card>
@@ -249,7 +290,7 @@ const AcademicSection = () => {
                 )}
 
                 {/* Subject Marks - Only show if student is selected */}
-                {selectedStudent && (
+                {selectedStudent && subjects.length > 0 && (
                   <>
                     <div>
                       <Label className="text-lg font-semibold mb-4 block">Subject Marks</Label>
@@ -257,14 +298,14 @@ const AcademicSection = () => {
                         {subjects.map(subject => (
                           <div key={subject.key} className="space-y-2">
                             <Label htmlFor={`subject-${subject.key}`} className="text-sm font-medium">
-                              {subject.label}
+                              {subject.label} (Max: {subject.max_marks})
                             </Label>
                             <Input
                               type="number"
                               id={`subject-${subject.key}`}
-                              placeholder="0-100"
+                              placeholder={`0-${subject.max_marks}`}
                               min="0"
-                              max="100"
+                              max={subject.max_marks}
                               value={subjectMarks[subject.key] || ''}
                               onChange={(e) => handleSubjectMarkChange(subject.key, e.target.value)}
                               className="w-full"
@@ -277,7 +318,7 @@ const AcademicSection = () => {
                       <div className="mt-4 p-3 bg-gray-50 rounded-md">
                         <Label className="text-sm font-medium">Total Marks: </Label>
                         <span className="text-lg font-bold text-blue-600">
-                          {calculateTotalMarks()}/{subjects.length * 100}
+                          {calculateTotalMarks()}/{calculateMaxPossibleMarks()}
                         </span>
                       </div>
                     </div>
@@ -302,6 +343,16 @@ const AcademicSection = () => {
                       {isSubmitting ? "Saving..." : "Save Marks"}
                     </Button>
                   </>
+                )}
+
+                {/* No Subjects Warning */}
+                {selectedStudent && subjects.length === 0 && (
+                  <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <h4 className="font-medium text-yellow-800 mb-2">No Subjects Available</h4>
+                    <p className="text-sm text-yellow-700">
+                      No subjects have been configured yet. Please go to the "Subject Management" tab to add subjects before entering marks.
+                    </p>
+                  </div>
                 )}
               </div>
             </TabsContent>
