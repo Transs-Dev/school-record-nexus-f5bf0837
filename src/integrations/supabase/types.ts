@@ -9,6 +9,99 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      book_stock: {
+        Row: {
+          author: string | null
+          available_quantity: number
+          book_title: string
+          created_at: string
+          id: string
+          isbn: string | null
+          total_quantity: number
+          updated_at: string
+        }
+        Insert: {
+          author?: string | null
+          available_quantity?: number
+          book_title: string
+          created_at?: string
+          id?: string
+          isbn?: string | null
+          total_quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          author?: string | null
+          available_quantity?: number
+          book_title?: string
+          created_at?: string
+          id?: string
+          isbn?: string | null
+          total_quantity?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      book_transactions: {
+        Row: {
+          book_id: string
+          compensation_fee: number | null
+          condition: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          quantity: number | null
+          student_id: string
+          tracking_number: string
+          transaction_date: string
+          transaction_type: string
+          updated_at: string
+        }
+        Insert: {
+          book_id: string
+          compensation_fee?: number | null
+          condition?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          quantity?: number | null
+          student_id: string
+          tracking_number: string
+          transaction_date?: string
+          transaction_type: string
+          updated_at?: string
+        }
+        Update: {
+          book_id?: string
+          compensation_fee?: number | null
+          condition?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          quantity?: number | null
+          student_id?: string
+          tracking_number?: string
+          transaction_date?: string
+          transaction_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_transactions_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "book_stock"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "book_transactions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classes: {
         Row: {
           class_name: string
@@ -423,6 +516,10 @@ export type Database = {
           p_academic_year: string
         }
         Returns: number
+      }
+      generate_book_tracking_number: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       generate_furniture_tracking_number: {
         Args: Record<PropertyKey, never>

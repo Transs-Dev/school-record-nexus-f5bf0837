@@ -1,0 +1,204 @@
+
+import { supabase } from "@/integrations/supabase/client";
+
+export interface BookStock {
+  id: string;
+  book_title: string;
+  author?: string;
+  isbn?: string;
+  available_quantity: number;
+  total_quantity: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BookTransaction {
+  id: string;
+  tracking_number: string;
+  student_id: string;
+  book_id: string;
+  transaction_type: 'distribution' | 'return';
+  quantity?: number;
+  transaction_date: string;
+  condition?: 'good' | 'bad' | 'new';
+  compensation_fee?: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  students?: {
+    student_name: string;
+    registration_number: string;
+    grade: string;
+  };
+  book_stock?: {
+    book_title: string;
+    author?: string;
+  };
+}
+
+// Fetch all book stock
+export const getBookStock = async (): Promise<BookStock[]> => {
+  const { data, error } = await supabase
+    .from('book_stock')
+    .select('*')
+    .order('book_title');
+
+  if (error) {
+    console.error('Error fetching book stock:', error);
+    throw error;
+  }
+
+  return data || [];
+};
+
+// Add new book to stock
+export const addBookStock = async (book: Omit<BookStock, 'id' | 'created_at' | 'updated_at'>) => {
+  const { data, error } = await supabase
+    .from('book_stock')
+    .insert([book])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error adding book stock:', error);
+    throw error;
+  }
+
+  return data;
+};
+
+// Update book stock
+export const updateBookStock = async (id: string, updates: Partial<BookStock>) => {
+  const { data, error } = await supabase
+    .from('book_stock')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating book stock:', error);
+    throw error;
+  }
+
+  return data;
+};
+
+// Delete book stock
+export const deleteBookStock = async (id: string) => {
+  const { error } = await supabase
+    .from('book_stock')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting book stock:', error);
+    throw error;
+  }
+};
+
+// Create book transaction
+export const createBookTransaction = async (transaction: {
+  student_id: string;
+  book_id: string;
+  transaction_type: 'distribution' | 'return';
+  quantity?: number;
+  condition?: 'good' | 'bad' | 'new';
+  compensation_fee?: number;
+  notes?: string;
+}) => {
+  const { data, error } = await supabase
+    .from('book_transactions')
+    .insert([transaction])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating book transaction:', error);
+    throw error;
+  }
+
+  return data;
+};
+
+// Get all book transactions with student and book details
+export const getBookTransactions = async (): Promise<BookTransaction[]> => {
+  const { data, error } = await supabase
+    .from('book_transactions')
+    .select(`
+      *,
+      students (
+        student_name,
+        registration_number,
+        grade
+      ),
+      book_stock (
+        book_title,
+        author
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching book transactions:', error);
+    throw error;
+  }
+
+  return data || [];
+};
+
+// Get student's book balance
+export const getStudentBookBalance = async (studentId: string, bookId: string): Promise<number> => {
+  const { data, error } = await supabase
+    .from('book_transactions')
+    .select('transaction_type, quantity')
+    .eq('student_id', studentId)
+    .eq('book_id', bookId);
+
+  if (error) {
+    console.error('Error fetching student book balance:', error);
+    throw error;
+  }
+
+  let balance = 0;
+  data?.forEach(transaction => {
+    const quantity = transaction.quantity || 1;
+    if (transaction.transaction_type === 'distribution') {
+      balance += quantity;
+    } else if (transaction.transaction_type === 'return') {
+      balance -= quantity;
+    }
+  });
+
+  return Math.max(0, balance);
+};
+
+// Get all students with books
+export const getStudentsWithBooks = async () => {
+  const { data, error } = await supabase
+    .from('book_transactions')
+    .select(`
+      student_id,
+      students (
+        student_name,
+        registration_number,
+        grade
+      )
+    `)
+    .eq('transaction_type', 'distribution');
+
+  if (error) {
+    console.error('Error fetching students with books:', error);
+    throw error;
+  }
+
+  // Remove duplicates
+  const uniqueStudents = data?.reduce((acc: any[], curr) => {
+    if (!acc.find(s => s.student_id === curr.student_id)) {
+      acc.push(curr);
+    }
+    return acc;
+  }, []);
+
+  return uniqueStudents || [];
+};
