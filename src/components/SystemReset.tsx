@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, RotateCcw, Trash2, Database, Loader2 } from "lucide-react";
+import { AlertTriangle, RotateCcw, Trash2, Database, Loader2, CheckCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -28,6 +28,8 @@ const SystemReset = () => {
     try {
       setIsResetting(true);
       
+      console.log("Starting system reset...");
+      
       // Call the database function to reset the entire system
       const { error } = await supabase.rpc('reset_school_system');
       
@@ -36,9 +38,11 @@ const SystemReset = () => {
         throw error;
       }
 
+      console.log("System reset completed successfully");
+
       toast({
         title: "System Reset Successful",
-        description: "All records have been cleared. The system is now ready for fresh setup.",
+        description: "All records have been cleared. Registration numbers will now start with RSS/00001/25.",
       });
 
       // Clear confirmation text
@@ -100,6 +104,19 @@ const SystemReset = () => {
           </CardTitle>
           <CardDescription className="text-red-700">
             This action will permanently delete ALL data in the system and cannot be undone.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      {/* Registration Number Info */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2 text-blue-800">
+            <CheckCircle className="w-5 h-5" />
+            <span>Registration Number Reset</span>
+          </CardTitle>
+          <CardDescription className="text-blue-700">
+            After reset, the first student registered will receive registration number: <span className="font-mono font-bold">RSS/00001/25</span>
           </CardDescription>
         </CardHeader>
       </Card>
@@ -203,8 +220,8 @@ const SystemReset = () => {
         <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
           <h4 className="font-medium text-blue-800 mb-2">After Reset</h4>
           <p className="text-sm text-blue-700">
-            The system will be restored to its initial state, ready for fresh setup. 
-            You can immediately start enrolling new students and configuring the system.
+            The system will be restored to its initial state with registration numbers starting from RSS/00001/25. 
+            You can immediately start enrolling new students.
           </p>
         </div>
         
