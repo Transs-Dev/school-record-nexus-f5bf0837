@@ -15,6 +15,7 @@ export type Database = {
           available_quantity: number
           book_title: string
           created_at: string
+          grade: string | null
           id: string
           isbn: string | null
           total_quantity: number
@@ -25,6 +26,7 @@ export type Database = {
           available_quantity?: number
           book_title: string
           created_at?: string
+          grade?: string | null
           id?: string
           isbn?: string | null
           total_quantity?: number
@@ -35,6 +37,7 @@ export type Database = {
           available_quantity?: number
           book_title?: string
           created_at?: string
+          grade?: string | null
           id?: string
           isbn?: string | null
           total_quantity?: number

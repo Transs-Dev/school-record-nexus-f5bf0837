@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export interface BookStock {
@@ -5,6 +6,7 @@ export interface BookStock {
   book_title: string;
   author?: string;
   isbn?: string;
+  grade?: string;
   available_quantity: number;
   total_quantity: number;
   created_at: string;
@@ -32,6 +34,7 @@ export interface BookTransaction {
   book_stock?: {
     book_title: string;
     author?: string;
+    grade?: string;
   };
 }
 
@@ -44,6 +47,26 @@ export const getBookStock = async (): Promise<BookStock[]> => {
 
   if (error) {
     console.error('Error fetching book stock:', error);
+    throw error;
+  }
+
+  return data || [];
+};
+
+// Fetch book stock filtered by grade
+export const getBookStockByGrade = async (grade?: string): Promise<BookStock[]> => {
+  let query = supabase
+    .from('book_stock')
+    .select('*');
+
+  if (grade) {
+    query = query.eq('grade', grade);
+  }
+
+  const { data, error } = await query.order('book_title');
+
+  if (error) {
+    console.error('Error fetching book stock by grade:', error);
     throw error;
   }
 
@@ -137,7 +160,8 @@ export const getBookTransactions = async (): Promise<BookTransaction[]> => {
       ),
       book_stock (
         book_title,
-        author
+        author,
+        grade
       )
     `)
     .order('created_at', { ascending: false });
@@ -219,7 +243,8 @@ export const getStudentBorrowedBooks = async (studentId: string) => {
       book_stock (
         id,
         book_title,
-        author
+        author,
+        grade
       )
     `)
     .eq('student_id', studentId);

@@ -4,23 +4,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, Library } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BookOpen, Plus, Filter } from "lucide-react";
 import { getBookStock, addBookStock, updateBookStock, deleteBookStock, BookStock } from "@/utils/bookDatabase";
+import GradeBookManagement from "./GradeBookManagement";
 
 const BookStockManagement = () => {
   const [books, setBooks] = useState<BookStock[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editingBook, setEditingBook] = useState<BookStock | null>(null);
-  const [formData, setFormData] = useState({
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  // Legacy book form state (without grade)
+  const [newBook, setNewBook] = useState({
     book_title: "",
     author: "",
     isbn: "",
-    available_quantity: 0,
-    total_quantity: 0
+    total_quantity: 0,
+    available_quantity: 0
   });
-  const { toast } = useToast();
 
   useEffect(() => {
     loadBooks();
@@ -35,7 +40,7 @@ const BookStockManagement = () => {
       console.error('Error loading books:', error);
       toast({
         title: "Error",
-        description: "Failed to load book stock",
+        description: "Failed to load books",
         variant: "destructive",
       });
     } finally {
@@ -43,10 +48,8 @@ const BookStockManagement = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.book_title.trim()) {
+  const handleAddBook = async () => {
+    if (!newBook.book_title.trim()) {
       toast({
         title: "Error",
         description: "Book title is required",
@@ -56,46 +59,29 @@ const BookStockManagement = () => {
     }
 
     try {
-      if (editingBook) {
-        await updateBookStock(editingBook.id, formData);
-        toast({
-          title: "Success",
-          description: "Book updated successfully",
-        });
-      } else {
-        await addBookStock(formData);
-        toast({
-          title: "Success",
-          description: "Book added successfully",
-        });
-      }
-      
-      resetForm();
+      await addBookStock(newBook);
+      toast({
+        title: "Success",
+        description: "Book added successfully",
+      });
+      setNewBook({
+        book_title: "",
+        author: "",
+        isbn: "",
+        total_quantity: 0,
+        available_quantity: 0
+      });
       loadBooks();
     } catch (error) {
-      console.error('Error saving book:', error);
       toast({
         title: "Error",
-        description: "Failed to save book",
+        description: "Failed to add book",
         variant: "destructive",
       });
     }
   };
 
-  const handleEdit = (book: BookStock) => {
-    setEditingBook(book);
-    setFormData({
-      book_title: book.book_title,
-      author: book.author || "",
-      isbn: book.isbn || "",
-      available_quantity: book.available_quantity,
-      total_quantity: book.total_quantity
-    });
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this book?")) return;
-
+  const handleDeleteBook = async (id: string) => {
     try {
       await deleteBookStock(id);
       toast({
@@ -104,7 +90,6 @@ const BookStockManagement = () => {
       });
       loadBooks();
     } catch (error) {
-      console.error('Error deleting book:', error);
       toast({
         title: "Error",
         description: "Failed to delete book",
@@ -113,155 +98,161 @@ const BookStockManagement = () => {
     }
   };
 
-  const resetForm = () => {
-    setEditingBook(null);
-    setFormData({
-      book_title: "",
-      author: "",
-      isbn: "",
-      available_quantity: 0,
-      total_quantity: 0
-    });
+  const getStockStatus = (book: BookStock) => {
+    if (book.available_quantity === 0) {
+      return <Badge variant="destructive">Out of Stock</Badge>;
+    } else if (book.available_quantity < book.total_quantity * 0.2) {
+      return <Badge className="bg-yellow-100 text-yellow-800">Low Stock</Badge>;
+    } else {
+      return <Badge className="bg-green-100 text-green-800">In Stock</Badge>;
+    }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-32">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Library className="h-5 w-5" />
-          <span>Book Stock Management</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Add/Edit Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="book_title">Book Title *</Label>
-              <Input
-                id="book_title"
-                value={formData.book_title}
-                onChange={(e) => setFormData({ ...formData, book_title: e.target.value })}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="author">Author</Label>
-              <Input
-                id="author"
-                value={formData.author}
-                onChange={(e) => setFormData({ ...formData, author: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="isbn">ISBN</Label>
-              <Input
-                id="isbn"
-                value={formData.isbn}
-                onChange={(e) => setFormData({ ...formData, isbn: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="total_quantity">Total Quantity</Label>
-              <Input
-                id="total_quantity"
-                type="number"
-                min="0"
-                value={formData.total_quantity}
-                onChange={(e) => setFormData({ ...formData, total_quantity: parseInt(e.target.value) || 0 })}
-              />
-            </div>
-          </div>
-          
-          {!editingBook && (
-            <div>
-              <Label htmlFor="available_quantity">Available Quantity</Label>
-              <Input
-                id="available_quantity"
-                type="number"
-                min="0"
-                value={formData.available_quantity}
-                onChange={(e) => setFormData({ ...formData, available_quantity: parseInt(e.target.value) || 0 })}
-              />
-            </div>
-          )}
+    <div className="space-y-6">
+      <div className="flex items-center space-x-2">
+        <BookOpen className="h-6 w-6" />
+        <h2 className="text-2xl font-bold">Book Stock Management</h2>
+      </div>
 
-          <div className="flex space-x-2">
-            <Button type="submit" className="flex items-center space-x-2">
-              <Plus className="h-4 w-4" />
-              <span>{editingBook ? 'Update Book' : 'Add Book'}</span>
-            </Button>
-            {editingBook && (
-              <Button type="button" variant="outline" onClick={resetForm}>
-                Cancel
+      <Tabs defaultValue="grade-based" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="grade-based">Grade-Based Management</TabsTrigger>
+          <TabsTrigger value="general">General Stock</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="grade-based">
+          <GradeBookManagement />
+        </TabsContent>
+
+        <TabsContent value="general" className="space-y-6">
+          {/* Legacy Add New Book Form */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Plus className="h-5 w-5" />
+                <span>Add General Book (No Grade Assignment)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Book Title</Label>
+                  <Input
+                    value={newBook.book_title}
+                    onChange={(e) => setNewBook({ ...newBook, book_title: e.target.value })}
+                    placeholder="Enter book title"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Author</Label>
+                  <Input
+                    value={newBook.author}
+                    onChange={(e) => setNewBook({ ...newBook, author: e.target.value })}
+                    placeholder="Enter author name"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>ISBN</Label>
+                  <Input
+                    value={newBook.isbn}
+                    onChange={(e) => setNewBook({ ...newBook, isbn: e.target.value })}
+                    placeholder="Enter ISBN"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Total Quantity</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={newBook.total_quantity}
+                    onChange={(e) => setNewBook({ 
+                      ...newBook, 
+                      total_quantity: parseInt(e.target.value) || 0,
+                      available_quantity: parseInt(e.target.value) || 0
+                    })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Available Quantity</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={newBook.available_quantity}
+                    onChange={(e) => setNewBook({ ...newBook, available_quantity: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+              </div>
+
+              <Button onClick={handleAddBook} disabled={loading}>
+                Add Book
               </Button>
-            )}
-          </div>
-        </form>
+            </CardContent>
+          </Card>
 
-        {/* Books Table */}
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Author</TableHead>
-                <TableHead>ISBN</TableHead>
-                <TableHead>Available</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {books.map((book) => (
-                <TableRow key={book.id}>
-                  <TableCell className="font-medium">{book.book_title}</TableCell>
-                  <TableCell>{book.author || '-'}</TableCell>
-                  <TableCell>{book.isbn || '-'}</TableCell>
-                  <TableCell>
-                    <span className={book.available_quantity === 0 ? 'text-red-600' : 'text-green-600'}>
-                      {book.available_quantity}
-                    </span>
-                  </TableCell>
-                  <TableCell>{book.total_quantity}</TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEdit(book)}
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDelete(book.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {books.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No books found. Add your first book above.
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+          {/* All Books Inventory */}
+          <Card>
+            <CardHeader>
+              <CardTitle>All Books Inventory</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Book Title</TableHead>
+                    <TableHead>Author</TableHead>
+                    <TableHead>Grade</TableHead>
+                    <TableHead>ISBN</TableHead>
+                    <TableHead>Available</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {books.map((book) => (
+                    <TableRow key={book.id}>
+                      <TableCell className="font-medium">{book.book_title}</TableCell>
+                      <TableCell>{book.author || "N/A"}</TableCell>
+                      <TableCell>
+                        {book.grade ? (
+                          <Badge variant="outline">{book.grade}</Badge>
+                        ) : (
+                          <Badge variant="secondary">General</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>{book.isbn || "N/A"}</TableCell>
+                      <TableCell>{book.available_quantity}</TableCell>
+                      <TableCell>{book.total_quantity}</TableCell>
+                      <TableCell>{getStockStatus(book)}</TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          onClick={() => handleDeleteBook(book.id)}
+                        >
+                          Delete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {books.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-gray-500">
+                        No books found
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 };
 
