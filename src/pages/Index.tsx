@@ -14,7 +14,8 @@ import {
   FlaskConical, 
   User, 
   BookOpen, 
-  Settings 
+  Settings,
+  School
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import Dashboard from "@/components/Dashboard";
@@ -60,9 +61,15 @@ const Index = () => {
         {/* Mobile Header */}
         <div className="lg:hidden bg-white border-b shadow-sm">
           <div className="flex items-center justify-between p-4">
-            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              School Management
-            </h1>
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg">
+                <School className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-gray-900">SchoolMS</h1>
+                <p className="text-xs text-gray-500">Management System</p>
+              </div>
+            </div>
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="hover:bg-blue-50">
@@ -108,9 +115,15 @@ const Index = () => {
           <div className="hidden lg:block bg-white border-b shadow-sm">
             <div className="container mx-auto px-6">
               <div className="flex items-center justify-between py-4">
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  School Management System
-                </h1>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg">
+                    <School className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-900">SchoolMS</h1>
+                    <p className="text-sm text-gray-600">Management System</p>
+                  </div>
+                </div>
                 <TabsList className="bg-gray-100 p-1 rounded-lg">
                   {tabs.map((tab) => (
                     <TabsTrigger 
