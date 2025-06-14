@@ -1,23 +1,24 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { fetchAllStudents, saveExaminationMarks, fetchExaminationMarks, type Student, type SubjectMark } from "@/utils/studentDatabase";
+import { fetchStudentsByGrade, saveExaminationMarks, type Student, type SubjectMark } from "@/utils/studentDatabase";
+import ResultsSection from "./ResultsSection";
 
 const AcademicSection = () => {
   const [students, setStudents] = useState<Student[]>([]);
-  const [selectedStudent, setSelectedStudent] = useState("");
   const [selectedGrade, setSelectedGrade] = useState("");
+  const [selectedStudent, setSelectedStudent] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("");
   const [academicYear, setAcademicYear] = useState(new Date().getFullYear().toString());
   const [subjectMarks, setSubjectMarks] = useState<Record<string, number>>({});
   const [remarks, setRemarks] = useState("");
-  const [results, setResults] = useState<any[]>([]);
   const { toast } = useToast();
 
   // Define all subjects in the order requested
@@ -35,27 +36,34 @@ const AcademicSection = () => {
     { key: "physics", label: "Physics" }
   ];
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const studentsData = await fetchAllStudents();
-        setStudents(studentsData);
-      } catch (error) {
-        console.error("Error loading data:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load students",
-          variant: "destructive",
-        });
-      }
-    };
-
-    loadData();
-  }, [toast]);
+  const grades = [
+    "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5",
+    "Grade 6", "Grade 7", "Grade 8", "Grade 9"
+  ];
 
   useEffect(() => {
-    loadResults();
-  }, [selectedGrade, selectedTerm, academicYear, toast]);
+    if (selectedGrade) {
+      loadStudentsByGrade();
+    } else {
+      setStudents([]);
+      setSelectedStudent("");
+    }
+  }, [selectedGrade]);
+
+  const loadStudentsByGrade = async () => {
+    try {
+      const studentsData = await fetchStudentsByGrade(selectedGrade);
+      setStudents(studentsData);
+      setSelectedStudent(""); // Reset selected student when grade changes
+    } catch (error) {
+      console.error("Error loading students:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load students for selected grade",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleSubjectMarkChange = (subjectKey: string, value: string) => {
     const marks = parseInt(value) || 0;
@@ -104,7 +112,6 @@ const AcademicSection = () => {
       // Clear form
       setSubjectMarks({});
       setRemarks("");
-      loadResults();
     } catch (error) {
       console.error("Error saving examination marks:", error);
       toast({
@@ -115,217 +122,141 @@ const AcademicSection = () => {
     }
   };
 
-  const loadResults = async () => {
-    if (!selectedGrade || !selectedTerm) return;
-    
-    try {
-      const examResults = await fetchExaminationMarks(selectedGrade, selectedTerm, academicYear);
-      const studentsData = await fetchAllStudents();
-      
-      const resultsWithStudentInfo = examResults.map(result => {
-        const student = studentsData.find(s => s.id === result.student_id);
-        
-        let parsedSubjectMarks: SubjectMark[] = [];
-        if (result.subject_marks) {
-          try {
-            if (Array.isArray(result.subject_marks)) {
-              parsedSubjectMarks = result.subject_marks as unknown as SubjectMark[];
-            } else if (typeof result.subject_marks === 'string') {
-              parsedSubjectMarks = JSON.parse(result.subject_marks);
-            }
-          } catch (error) {
-            console.error("Error parsing subject marks:", error);
-            parsedSubjectMarks = [];
-          }
-        }
-        
-        return {
-          ...result,
-          student_name: student?.student_name || "Unknown",
-          registration_number: student?.registration_number || "Unknown",
-          subject_marks: parsedSubjectMarks
-        };
-      });
-      
-      setResults(resultsWithStudentInfo);
-    } catch (error) {
-      console.error("Error loading results:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load results",
-        variant: "destructive",
-      });
-    }
-  };
-
   return (
     <div className="container mx-auto p-4">
       <Card>
         <CardHeader>
-          <CardTitle>Examination Marks Entry</CardTitle>
-          <CardDescription>Enter examination marks for students</CardDescription>
+          <CardTitle>Academic Management</CardTitle>
+          <CardDescription>Manage examination marks and view student performance</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Student and Term Selection */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="student">Student</Label>
-              <Select onValueChange={setSelectedStudent}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a student" />
-                </SelectTrigger>
-                <SelectContent>
-                  {students.map(student => (
-                    <SelectItem key={student.id} value={student.id}>{student.student_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="grade">Grade</Label>
-              <Select onValueChange={setSelectedGrade}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a grade" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Grade 1">Grade 1</SelectItem>
-                  <SelectItem value="Grade 2">Grade 2</SelectItem>
-                  <SelectItem value="Grade 3">Grade 3</SelectItem>
-                  <SelectItem value="Grade 4">Grade 4</SelectItem>
-                  <SelectItem value="Grade 5">Grade 5</SelectItem>
-                  <SelectItem value="Grade 6">Grade 6</SelectItem>
-                  <SelectItem value="Grade 7">Grade 7</SelectItem>
-                  <SelectItem value="Grade 8">Grade 8</SelectItem>
-                  <SelectItem value="Grade 9">Grade 9</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="term">Term</Label>
-              <Select onValueChange={setSelectedTerm}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a term" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Term 1">Term 1</SelectItem>
-                  <SelectItem value="Term 2">Term 2</SelectItem>
-                  <SelectItem value="Term 3">Term 3</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="academicYear">Academic Year</Label>
-              <Input
-                type="number"
-                id="academicYear"
-                value={academicYear}
-                onChange={(e) => setAcademicYear(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Subject Marks - Column Layout */}
-          <div>
-            <Label className="text-lg font-semibold mb-4 block">Subject Marks</Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {subjects.map(subject => (
-                <div key={subject.key} className="space-y-2">
-                  <Label htmlFor={`subject-${subject.key}`} className="text-sm font-medium">
-                    {subject.label}
-                  </Label>
-                  <Input
-                    type="number"
-                    id={`subject-${subject.key}`}
-                    placeholder="0-100"
-                    min="0"
-                    max="100"
-                    value={subjectMarks[subject.key] || ''}
-                    onChange={(e) => handleSubjectMarkChange(subject.key, e.target.value)}
-                    className="w-full"
-                  />
-                </div>
-              ))}
-            </div>
+        <CardContent>
+          <Tabs defaultValue="marks-entry" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="marks-entry">Marks Entry</TabsTrigger>
+              <TabsTrigger value="performance">Student Performance</TabsTrigger>
+            </TabsList>
             
-            {/* Total Marks Display */}
-            <div className="mt-4 p-3 bg-gray-50 rounded-md">
-              <Label className="text-sm font-medium">Total Marks: </Label>
-              <span className="text-lg font-bold text-blue-600">
-                {calculateTotalMarks()}/{subjects.length * 100}
-              </span>
-            </div>
-          </div>
+            <TabsContent value="marks-entry" className="space-y-6">
+              <div className="space-y-6">
+                {/* Grade Selection First */}
+                <div>
+                  <Label htmlFor="grade">Select Grade First</Label>
+                  <Select onValueChange={setSelectedGrade} value={selectedGrade}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a grade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {grades.map(grade => (
+                        <SelectItem key={grade} value={grade}>{grade}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          {/* Remarks */}
-          <div>
-            <Label htmlFor="remarks">Remarks</Label>
-            <Textarea
-              id="remarks"
-              placeholder="Enter remarks about student performance"
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              className="min-h-[100px]"
-            />
-          </div>
+                {/* Student and Term Selection - Only show if grade is selected */}
+                {selectedGrade && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="student">Student</Label>
+                      <Select onValueChange={setSelectedStudent} value={selectedStudent}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a student" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {students.map(student => (
+                            <SelectItem key={student.id} value={student.id}>{student.student_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="term">Term</Label>
+                      <Select onValueChange={setSelectedTerm} value={selectedTerm}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a term" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Term 1">Term 1</SelectItem>
+                          <SelectItem value="Term 2">Term 2</SelectItem>
+                          <SelectItem value="Term 3">Term 3</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
 
-          <Button onClick={handleSubmit} className="w-full">
-            Save Marks
-          </Button>
+                {selectedGrade && (
+                  <div>
+                    <Label htmlFor="academicYear">Academic Year</Label>
+                    <Input
+                      type="number"
+                      id="academicYear"
+                      value={academicYear}
+                      onChange={(e) => setAcademicYear(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {/* Subject Marks - Only show if student is selected */}
+                {selectedStudent && (
+                  <>
+                    <div>
+                      <Label className="text-lg font-semibold mb-4 block">Subject Marks</Label>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {subjects.map(subject => (
+                          <div key={subject.key} className="space-y-2">
+                            <Label htmlFor={`subject-${subject.key}`} className="text-sm font-medium">
+                              {subject.label}
+                            </Label>
+                            <Input
+                              type="number"
+                              id={`subject-${subject.key}`}
+                              placeholder="0-100"
+                              min="0"
+                              max="100"
+                              value={subjectMarks[subject.key] || ''}
+                              onChange={(e) => handleSubjectMarkChange(subject.key, e.target.value)}
+                              className="w-full"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Total Marks Display */}
+                      <div className="mt-4 p-3 bg-gray-50 rounded-md">
+                        <Label className="text-sm font-medium">Total Marks: </Label>
+                        <span className="text-lg font-bold text-blue-600">
+                          {calculateTotalMarks()}/{subjects.length * 100}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Remarks */}
+                    <div>
+                      <Label htmlFor="remarks">Remarks</Label>
+                      <Textarea
+                        id="remarks"
+                        placeholder="Enter remarks about student performance"
+                        value={remarks}
+                        onChange={(e) => setRemarks(e.target.value)}
+                        className="min-h-[100px]"
+                      />
+                    </div>
+
+                    <Button onClick={handleSubmit} className="w-full">
+                      Save Marks
+                    </Button>
+                  </>
+                )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="performance">
+              <ResultsSection />
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
-
-      {/* Results Display */}
-      {results.length > 0 && (
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Examination Results</CardTitle>
-            <CardDescription>Results for {selectedGrade}, {selectedTerm}, {academicYear}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Registration Number
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total Marks
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Remarks
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {results.map((result) => (
-                    <tr key={result.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{result.registration_number}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{result.student_name}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{result.total_marks}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{result.remarks}</div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };

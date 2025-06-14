@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -31,12 +30,17 @@ const ResultsSection = () => {
   const currentYear = new Date().getFullYear().toString();
 
   const subjects = [
-    { key: "mathematics", label: "Mathematics" },
+    { key: "agriculture", label: "Agriculture" },
+    { key: "biology", label: "Biology" },
+    { key: "business_studies", label: "Business Studies" },
+    { key: "chemistry", label: "Chemistry" },
     { key: "english", label: "English" },
+    { key: "geography", label: "Geography" },
+    { key: "history", label: "History" },
+    { key: "ire_cre", label: "IRE/CRE" },
     { key: "kiswahili", label: "Kiswahili" },
-    { key: "science", label: "Science" },
-    { key: "social_studies", label: "Social Studies" },
-    { key: "ire_cre", label: "IRE/CRE" }
+    { key: "mathematics", label: "Mathematics" },
+    { key: "physics", label: "Physics" }
   ];
 
   useEffect(() => {
@@ -58,7 +62,7 @@ const ResultsSection = () => {
       // Load examination results for the selected term and grade
       const resultsData = await fetchExaminationMarks(selectedGrade, selectedTerm, currentYear);
       
-      // Sort results by total marks in descending order
+      // Sort results by total marks in descending order (highest to lowest)
       const sortedResults = resultsData.sort((a, b) => (b.total_marks || 0) - (a.total_marks || 0));
       
       setStudents(studentsData);
@@ -84,6 +88,25 @@ const ResultsSection = () => {
     return students.find(student => student.id === examResult.student_id);
   };
 
+  const getSubjectMark = (examResult: ExaminationMark, subjectKey: string) => {
+    if (!examResult.subject_marks) return 0;
+    
+    let parsedSubjectMarks: any[] = [];
+    try {
+      if (Array.isArray(examResult.subject_marks)) {
+        parsedSubjectMarks = examResult.subject_marks;
+      } else if (typeof examResult.subject_marks === 'string') {
+        parsedSubjectMarks = JSON.parse(examResult.subject_marks);
+      }
+    } catch (error) {
+      console.error("Error parsing subject marks:", error);
+      return 0;
+    }
+    
+    const subjectMark = parsedSubjectMarks.find(mark => mark.subject_id === subjectKey);
+    return subjectMark?.marks || 0;
+  };
+
   const getPositionIcon = (position: number) => {
     if (position === 1) return <Trophy className="w-5 h-5 text-yellow-500" />;
     if (position === 2) return <Medal className="w-5 h-5 text-gray-400" />;
@@ -97,68 +120,60 @@ const ResultsSection = () => {
     return "outline";
   };
 
+  const getMarksBadgeVariant = (marks: number) => {
+    if (marks >= 80) return "default";
+    if (marks >= 60) return "secondary";
+    if (marks >= 40) return "outline";
+    return "destructive";
+  };
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Academic Results</h2>
-        <p className="text-gray-600">View and analyze student examination results by grade and term</p>
+        <h3 className="text-2xl font-bold text-gray-900 mb-2">Student Performance</h3>
+        <p className="text-gray-600">View student results ranked by performance</p>
       </div>
 
       {/* Selection Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <BookOpen className="w-5 h-5" />
-            <span>Results Filter</span>
-          </CardTitle>
-          <CardDescription>
-            Select grade and term to view student results ranked by performance
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="grade-select">Grade</Label>
-              <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-                <SelectTrigger id="grade-select">
-                  <SelectValue placeholder="Select Grade" />
-                </SelectTrigger>
-                <SelectContent>
-                  {grades.map((grade) => (
-                    <SelectItem key={grade} value={grade}>
-                      {grade}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="term-select">Term</Label>
-              <Select value={selectedTerm} onValueChange={setSelectedTerm}>
-                <SelectTrigger id="term-select">
-                  <SelectValue placeholder="Select Term" />
-                </SelectTrigger>
-                <SelectContent>
-                  {terms.map((term) => (
-                    <SelectItem key={term} value={term}>
-                      {term}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="grade-select">Grade</Label>
+          <Select value={selectedGrade} onValueChange={setSelectedGrade}>
+            <SelectTrigger id="grade-select">
+              <SelectValue placeholder="Select Grade" />
+            </SelectTrigger>
+            <SelectContent>
+              {grades.map((grade) => (
+                <SelectItem key={grade} value={grade}>
+                  {grade}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="term-select">Term</Label>
+          <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+            <SelectTrigger id="term-select">
+              <SelectValue placeholder="Select Term" />
+            </SelectTrigger>
+            <SelectContent>
+              {terms.map((term) => (
+                <SelectItem key={term} value={term}>
+                  {term}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       {/* Loading State */}
       {loading && (
-        <Card>
-          <CardContent className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin mr-2" />
-            <span>Loading results...</span>
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin mr-2" />
+          <span>Loading results...</span>
+        </div>
       )}
 
       {/* Results Table */}
@@ -166,7 +181,7 @@ const ResultsSection = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>Results - {selectedGrade} ({selectedTerm})</span>
+              <span>Performance Rankings - {selectedGrade} ({selectedTerm})</span>
               <Badge variant="secondary">{examResults.length} Students</Badge>
             </CardTitle>
             <CardDescription>
@@ -180,13 +195,13 @@ const ResultsSection = () => {
                   <TableRow>
                     <TableHead className="w-20">Position</TableHead>
                     <TableHead className="min-w-[120px]">Reg. Number</TableHead>
-                    <TableHead className="min-w-[150px]">Full Name</TableHead>
+                    <TableHead className="min-w-[150px]">Student Name</TableHead>
                     {subjects.map((subject) => (
-                      <TableHead key={subject.key} className="min-w-[100px] text-center">
+                      <TableHead key={subject.key} className="min-w-[80px] text-center">
                         {subject.label}
                       </TableHead>
                     ))}
-                    <TableHead className="min-w-[100px] text-center">Total Marks</TableHead>
+                    <TableHead className="min-w-[100px] text-center">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -212,27 +227,22 @@ const ResultsSection = () => {
                         <TableCell className="font-medium">
                           {student.student_name}
                         </TableCell>
-                        {subjects.map((subject) => (
-                          <TableCell key={subject.key} className="text-center">
-                            <Badge 
-                              variant={
-                                (result[subject.key as keyof ExaminationMark] as number || 0) >= 80 ? "default" :
-                                (result[subject.key as keyof ExaminationMark] as number || 0) >= 60 ? "secondary" : "destructive"
-                              }
-                            >
-                              {result[subject.key as keyof ExaminationMark] as number || 0}/100
-                            </Badge>
-                          </TableCell>
-                        ))}
+                        {subjects.map((subject) => {
+                          const marks = getSubjectMark(result, subject.key);
+                          return (
+                            <TableCell key={subject.key} className="text-center">
+                              <Badge variant={getMarksBadgeVariant(marks)}>
+                                {marks}
+                              </Badge>
+                            </TableCell>
+                          );
+                        })}
                         <TableCell className="text-center">
                           <Badge 
-                            variant={
-                              (result.total_marks || 0) >= 480 ? "default" :
-                              (result.total_marks || 0) >= 360 ? "secondary" : "destructive"
-                            }
+                            variant={getMarksBadgeVariant((result.total_marks || 0) / subjects.length)}
                             className="text-lg font-bold"
                           >
-                            {result.total_marks || 0}/600
+                            {result.total_marks || 0}
                           </Badge>
                         </TableCell>
                       </TableRow>
@@ -266,7 +276,7 @@ const ResultsSection = () => {
             <Trophy className="w-12 h-12 text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Select Grade and Term</h3>
             <p className="text-gray-600 text-center">
-              Choose a grade and term to view student results ranked by performance
+              Choose a grade and term to view student performance rankings
             </p>
           </CardContent>
         </Card>
