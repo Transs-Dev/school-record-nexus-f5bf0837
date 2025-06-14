@@ -104,12 +104,12 @@ export const deleteLaboratoryStock = async (id: string): Promise<void> => {
 
 // Laboratory Clearances Management
 export const createLaboratoryClearance = async (
-  clearanceData: Omit<LaboratoryClearance, 'id' | 'tracking_number' | 'created_at' | 'students' | 'laboratory_stock'>
+  clearanceData: Omit<LaboratoryClearance, 'id' | 'tracking_number' | 'created_at' | 'students' | 'laboratory_stock' | 'payment_status'>
 ): Promise<void> => {
   const trackingNumber = generateTrackingNumber();
   
   const { error } = await supabase
-    .from('laboratory_clearances')
+    .from('laboratory_clearance')
     .insert([{
       ...clearanceData,
       tracking_number: trackingNumber,
@@ -124,7 +124,7 @@ export const createLaboratoryClearance = async (
 
 export const getLaboratoryClearances = async (): Promise<LaboratoryClearance[]> => {
   const { data, error } = await supabase
-    .from('laboratory_clearances')
+    .from('laboratory_clearance')
     .select(`
       *,
       students (
@@ -170,7 +170,7 @@ export const updateLaboratoryClearance = async (
   updates: Partial<LaboratoryClearance>
 ): Promise<void> => {
   const { error } = await supabase
-    .from('laboratory_clearances')
+    .from('laboratory_clearance')
     .update(updates)
     .eq('id', id);
 
@@ -187,7 +187,7 @@ export const processPayment = async (
   const receiptNumber = generateReceiptNumber();
   
   const { error } = await supabase
-    .from('laboratory_clearances')
+    .from('laboratory_clearance')
     .update({
       payment_status: 'paid',
       payment_mode: paymentData.payment_mode,
@@ -204,7 +204,7 @@ export const processPayment = async (
 
 export const getClearancesByStudent = async (studentId: string): Promise<LaboratoryClearance[]> => {
   const { data, error } = await supabase
-    .from('laboratory_clearances')
+    .from('laboratory_clearance')
     .select(`
       *,
       laboratory_stock (
