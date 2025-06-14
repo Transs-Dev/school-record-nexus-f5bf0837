@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Package, Users, ChevronRight, Plus, Search } from "lucide-react";
-import { getAllStudents, Student } from "@/utils/studentDatabase";
+import { fetchAllStudents, Student } from "@/utils/studentDatabase";
 import { 
   createFurnitureTransaction, 
   getFurnitureTransactions, 
@@ -38,7 +37,7 @@ const FurnitureManagement = () => {
     try {
       setLoading(true);
       const [studentsData, transactionsData] = await Promise.all([
-        getAllStudents(),
+        fetchAllStudents(),
         getFurnitureTransactions()
       ]);
       setStudents(studentsData);

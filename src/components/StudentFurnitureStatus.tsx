@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package, Chair, Locker } from "lucide-react";
+import { Package, Armchair, Lock } from "lucide-react";
 import { getStudentFurnitureBalance } from "@/utils/furnitureDatabase";
 
 interface StudentFurnitureStatusProps {
@@ -78,14 +78,14 @@ const StudentFurnitureStatus = ({ studentId, studentName }: StudentFurnitureStat
         <CardContent>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg">
-              <Chair className="h-8 w-8 text-blue-600" />
+              <Armchair className="h-8 w-8 text-blue-600" />
               <div>
                 <p className="text-sm text-gray-600">Chairs</p>
                 <p className="text-2xl font-bold text-blue-600">{furnitureData.chairs}</p>
               </div>
             </div>
             <div className="flex items-center space-x-3 p-4 bg-green-50 rounded-lg">
-              <Locker className="h-8 w-8 text-green-600" />
+              <Lock className="h-8 w-8 text-green-600" />
               <div>
                 <p className="text-sm text-gray-600">Lockers</p>
                 <p className="text-2xl font-bold text-green-600">{furnitureData.lockers}</p>
