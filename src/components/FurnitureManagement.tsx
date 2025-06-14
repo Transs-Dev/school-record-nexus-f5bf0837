@@ -1,56 +1,38 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Package, Users, ChevronRight, Plus, Search } from "lucide-react";
-import { fetchAllStudents, Student } from "@/utils/studentDatabase";
-import { 
-  createFurnitureTransaction, 
-  getFurnitureTransactions, 
-  FurnitureTransaction,
-  CreateFurnitureTransaction 
-} from "@/utils/furnitureDatabase";
-import BulkFurnitureAssignment from "./BulkFurnitureAssignment";
+import { Package, Search, Settings, ArrowRightLeft, History } from "lucide-react";
+import { getFurnitureTransactions } from "@/utils/furnitureDatabase";
+import StockManagement from "./StockManagement";
+import FurnitureDistribution from "./FurnitureDistribution";
+import FurnitureReturn from "./FurnitureReturn";
 
 const FurnitureManagement = () => {
-  const [students, setStudents] = useState<Student[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedStudent, setSelectedStudent] = useState<string>("");
-  const [transactionType, setTransactionType] = useState<'distribution' | 'return'>('distribution');
-  const [chairQuantity, setChairQuantity] = useState<number>(0);
-  const [lockerQuantity, setLockerQuantity] = useState<number>(0);
-  const [notes, setNotes] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [activeTab, setActiveTab] = useState("individual");
+  const [activeTab, setActiveTab] = useState("stock");
   const { toast } = useToast();
 
   useEffect(() => {
-    loadData();
+    loadTransactions();
   }, []);
 
-  const loadData = async () => {
+  const loadTransactions = async () => {
     try {
       setLoading(true);
-      const [studentsData, transactionsData] = await Promise.all([
-        fetchAllStudents(),
-        getFurnitureTransactions()
-      ]);
-      setStudents(studentsData);
+      const transactionsData = await getFurnitureTransactions();
       setTransactions(transactionsData);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading transactions:', error);
       toast({
         title: "Error",
-        description: "Failed to load furniture data",
+        description: "Failed to load furniture transactions",
         variant: "destructive",
       });
     } finally {
@@ -58,57 +40,8 @@ const FurnitureManagement = () => {
     }
   };
 
-  const handleCreateTransaction = async () => {
-    if (!selectedStudent) {
-      toast({
-        title: "Error",
-        description: "Please select a student",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (chairQuantity === 0 && lockerQuantity === 0) {
-      toast({
-        title: "Error",
-        description: "Please specify at least one item quantity",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const transaction: CreateFurnitureTransaction = {
-        student_id: selectedStudent,
-        transaction_type: transactionType,
-        chair_quantity: chairQuantity,
-        locker_quantity: lockerQuantity,
-        notes: notes.trim() || undefined
-      };
-
-      await createFurnitureTransaction(transaction);
-      
-      toast({
-        title: "Success",
-        description: `Furniture ${transactionType} recorded successfully`,
-      });
-
-      // Reset form
-      setSelectedStudent("");
-      setChairQuantity(0);
-      setLockerQuantity(0);
-      setNotes("");
-      
-      // Reload data
-      loadData();
-    } catch (error) {
-      console.error('Error creating furniture transaction:', error);
-      toast({
-        title: "Error",
-        description: "Failed to record furniture transaction",
-        variant: "destructive",
-      });
-    }
+  const handleTransactionComplete = () => {
+    loadTransactions();
   };
 
   const filteredTransactions = transactions.filter(transaction =>
@@ -136,91 +69,29 @@ const FurnitureManagement = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-2 w-[400px]">
-          <TabsTrigger value="individual">Individual Assignment</TabsTrigger>
-          <TabsTrigger value="bulk">Bulk Assignment</TabsTrigger>
+        <TabsList className="grid grid-cols-4 w-[600px]">
+          <TabsTrigger value="stock" className="flex items-center space-x-2">
+            <Settings className="h-4 w-4" />
+            <span>Stock</span>
+          </TabsTrigger>
+          <TabsTrigger value="distribution" className="flex items-center space-x-2">
+            <Package className="h-4 w-4" />
+            <span>Distribution</span>
+          </TabsTrigger>
+          <TabsTrigger value="return" className="flex items-center space-x-2">
+            <ArrowRightLeft className="h-4 w-4" />
+            <span>Return</span>
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center space-x-2">
+            <History className="h-4 w-4" />
+            <span>History</span>
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="individual">
+        <TabsContent value="stock">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Individual Transaction Form */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Plus className="h-5 w-5" />
-                  <span>Record Transaction</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="student-select">Student</Label>
-                  <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a student" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {students.map((student) => (
-                        <SelectItem key={student.id} value={student.id}>
-                          {student.student_name} - {student.registration_number} ({student.grade})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="transaction-type">Transaction Type</Label>
-                  <Select value={transactionType} onValueChange={(value: 'distribution' | 'return') => setTransactionType(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="distribution">Distribution</SelectItem>
-                      <SelectItem value="return">Return</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="chair-quantity">Chair Quantity</Label>
-                    <Input
-                      id="chair-quantity"
-                      type="number"
-                      min="0"
-                      value={chairQuantity}
-                      onChange={(e) => setChairQuantity(parseInt(e.target.value) || 0)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="locker-quantity">Locker Quantity</Label>
-                    <Input
-                      id="locker-quantity"
-                      type="number"
-                      min="0"
-                      value={lockerQuantity}
-                      onChange={(e) => setLockerQuantity(parseInt(e.target.value) || 0)}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="notes">Notes (Optional)</Label>
-                  <Textarea
-                    id="notes"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Any additional notes..."
-                    rows={3}
-                  />
-                </div>
-
-                <Button onClick={handleCreateTransaction} className="w-full">
-                  Record {transactionType === 'distribution' ? 'Distribution' : 'Return'}
-                </Button>
-              </CardContent>
-            </Card>
-
+            <StockManagement />
+            
             {/* Quick Stats */}
             <Card>
               <CardHeader>
@@ -244,13 +115,13 @@ const FurnitureManagement = () => {
                     <div className="text-2xl font-bold text-purple-600">
                       {transactions.reduce((sum, t) => sum + (t.chair_quantity || 0), 0)}
                     </div>
-                    <p className="text-sm text-gray-600">Total Chairs</p>
+                    <p className="text-sm text-gray-600">Total Chairs Moved</p>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-orange-600">
                       {transactions.reduce((sum, t) => sum + (t.locker_quantity || 0), 0)}
                     </div>
-                    <p className="text-sm text-gray-600">Total Lockers</p>
+                    <p className="text-sm text-gray-600">Total Lockers Moved</p>
                   </div>
                 </div>
               </CardContent>
@@ -258,84 +129,102 @@ const FurnitureManagement = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="bulk">
-          <BulkFurnitureAssignment />
+        <TabsContent value="distribution">
+          <FurnitureDistribution onTransactionComplete={handleTransactionComplete} />
+        </TabsContent>
+
+        <TabsContent value="return">
+          <FurnitureReturn onTransactionComplete={handleTransactionComplete} />
+        </TabsContent>
+
+        <TabsContent value="history">
+          {/* Transaction History */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Transaction History</span>
+                <div className="flex items-center space-x-2">
+                  <Search className="h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search transactions..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-64"
+                  />
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Tracking Number</TableHead>
+                      <TableHead>Student</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Chairs</TableHead>
+                      <TableHead>Lockers</TableHead>
+                      <TableHead>Condition</TableHead>
+                      <TableHead>Compensation</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Notes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTransactions.map((transaction) => (
+                      <TableRow key={transaction.id}>
+                        <TableCell className="font-mono text-sm">
+                          {transaction.tracking_number}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{transaction.students?.student_name || 'Unknown'}</div>
+                            <div className="text-sm text-gray-500">
+                              {transaction.students?.registration_number} • {transaction.students?.grade}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={transaction.transaction_type === 'distribution' ? 'default' : 'secondary'}>
+                            {transaction.transaction_type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {transaction.chair_quantity || 0}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {transaction.locker_quantity || 0}
+                        </TableCell>
+                        <TableCell>
+                          {transaction.condition && (
+                            <Badge variant={transaction.condition === 'good' ? 'default' : transaction.condition === 'bad' ? 'destructive' : 'outline'}>
+                              {transaction.condition}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {transaction.compensation_fee ? `$${transaction.compensation_fee}` : '-'}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(transaction.transaction_date).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate">
+                          {transaction.notes || '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {filteredTransactions.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No transactions found
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Transaction History */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Transaction History</span>
-            <div className="flex items-center space-x-2">
-              <Search className="h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search transactions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-64"
-              />
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tracking Number</TableHead>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Chairs</TableHead>
-                  <TableHead>Lockers</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Notes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTransactions.map((transaction) => (
-                  <TableRow key={transaction.id}>
-                    <TableCell className="font-mono text-sm">
-                      {transaction.tracking_number}
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{transaction.students?.student_name || 'Unknown'}</div>
-                        <div className="text-sm text-gray-500">
-                          {transaction.students?.registration_number} • {transaction.students?.grade}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={transaction.transaction_type === 'distribution' ? 'default' : 'secondary'}>
-                        {transaction.transaction_type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {transaction.chair_quantity || 0}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {transaction.locker_quantity || 0}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(transaction.transaction_date).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      {transaction.notes || '-'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {filteredTransactions.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No transactions found
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

@@ -152,9 +152,38 @@ export type Database = {
           },
         ]
       }
+      furniture_stock: {
+        Row: {
+          available_quantity: number
+          created_at: string
+          id: string
+          item_type: string
+          total_quantity: number
+          updated_at: string
+        }
+        Insert: {
+          available_quantity?: number
+          created_at?: string
+          id?: string
+          item_type: string
+          total_quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          available_quantity?: number
+          created_at?: string
+          id?: string
+          item_type?: string
+          total_quantity?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       furniture_transactions: {
         Row: {
           chair_quantity: number | null
+          compensation_fee: number | null
+          condition: string | null
           created_at: string
           id: string
           locker_quantity: number | null
@@ -167,6 +196,8 @@ export type Database = {
         }
         Insert: {
           chair_quantity?: number | null
+          compensation_fee?: number | null
+          condition?: string | null
           created_at?: string
           id?: string
           locker_quantity?: number | null
@@ -179,6 +210,8 @@ export type Database = {
         }
         Update: {
           chair_quantity?: number | null
+          compensation_fee?: number | null
+          condition?: string | null
           created_at?: string
           id?: string
           locker_quantity?: number | null
