@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowRightLeft, Search, BookOpen } from "lucide-react";
-import { getStudentsWithBooks, createBookTransaction, getStudentBookBalance, updateBookStock } from "@/utils/bookDatabase";
+import { getStudentsWithBooks, createBookTransaction, getStudentBookBalance, updateBookStock, getStudentBorrowedBooks } from "@/utils/bookDatabase";
 import { getStudents } from "@/utils/studentDatabase";
 
 interface BookReturnProps {
@@ -22,6 +22,7 @@ const BookReturn = ({ onTransactionComplete }: BookReturnProps) => {
   const [studentsWithBooks, setStudentsWithBooks] = useState<any[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<string>("");
   const [selectedBook, setSelectedBook] = useState<string>("");
+  const [studentBorrowedBooks, setStudentBorrowedBooks] = useState<any[]>([]);
   const [quantity, setQuantity] = useState<number>(1);
   const [condition, setCondition] = useState<string>("good");
   const [compensationFee, setCompensationFee] = useState<number>(0);
@@ -33,6 +34,15 @@ const BookReturn = ({ onTransactionComplete }: BookReturnProps) => {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (selectedStudent) {
+      loadStudentBorrowedBooks();
+    } else {
+      setStudentBorrowedBooks([]);
+      setSelectedBook("");
+    }
+  }, [selectedStudent]);
 
   const loadData = async () => {
     try {
@@ -47,6 +57,23 @@ const BookReturn = ({ onTransactionComplete }: BookReturnProps) => {
       toast({
         title: "Error",
         description: "Failed to load student data",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loadStudentBorrowedBooks = async () => {
+    if (!selectedStudent) return;
+    
+    try {
+      const borrowedBooks = await getStudentBorrowedBooks(selectedStudent);
+      setStudentBorrowedBooks(borrowedBooks);
+      console.log('Loaded borrowed books:', borrowedBooks);
+    } catch (error) {
+      console.error('Error loading student borrowed books:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load student's borrowed books",
         variant: "destructive",
       });
     }
@@ -126,6 +153,8 @@ const BookReturn = ({ onTransactionComplete }: BookReturnProps) => {
     student.students?.registration_number?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const selectedStudentInfo = studentsWithBooks.find(s => s.student_id === selectedStudent);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Return Form */}
@@ -162,18 +191,26 @@ const BookReturn = ({ onTransactionComplete }: BookReturnProps) => {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>Book</Label>
-            <Select value={selectedBook} onValueChange={setSelectedBook}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a book" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="book-1">Sample Book 1</SelectItem>
-                <SelectItem value="book-2">Sample Book 2</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {selectedStudent && (
+            <div className="space-y-2">
+              <Label>Borrowed Books</Label>
+              <Select value={selectedBook} onValueChange={setSelectedBook}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a book to return" />
+                </SelectTrigger>
+                <SelectContent>
+                  {studentBorrowedBooks.map((book) => (
+                    <SelectItem key={book.book_id} value={book.book_id}>
+                      {book.book_stock?.book_title} - Balance: {book.balance}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {studentBorrowedBooks.length === 0 && (
+                <p className="text-sm text-gray-500">No borrowed books found for this student</p>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -235,46 +272,87 @@ const BookReturn = ({ onTransactionComplete }: BookReturnProps) => {
         </CardContent>
       </Card>
 
-      {/* Students with Books */}
+      {/* Student Info and Borrowed Books */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <BookOpen className="h-5 w-5" />
-            <span>Students with Books</span>
+            <span>
+              {selectedStudent ? 'Student Books' : 'Students with Books'}
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Registration</TableHead>
-                  <TableHead>Grade</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredStudents.map((student) => (
-                  <TableRow key={student.student_id}>
-                    <TableCell className="font-medium">
-                      {student.students?.student_name || 'Unknown'}
-                    </TableCell>
-                    <TableCell>{student.students?.registration_number}</TableCell>
-                    <TableCell>{student.students?.grade}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">Has Books</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {filteredStudents.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No students with books found
+          {selectedStudent && selectedStudentInfo ? (
+            <div className="space-y-4">
+              {/* Student Info */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-medium text-gray-900">
+                  {selectedStudentInfo.students?.student_name}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Registration: {selectedStudentInfo.students?.registration_number}
+                </p>
+                <p className="text-sm text-gray-600">
+                  Grade: {selectedStudentInfo.students?.grade}
+                </p>
               </div>
-            )}
-          </div>
+
+              {/* Borrowed Books List */}
+              <div>
+                <h4 className="font-medium mb-2">Borrowed Books:</h4>
+                {studentBorrowedBooks.length > 0 ? (
+                  <div className="space-y-2">
+                    {studentBorrowedBooks.map((book) => (
+                      <div key={book.book_id} className="border rounded p-3">
+                        <div className="font-medium">{book.book_stock?.book_title}</div>
+                        <div className="text-sm text-gray-600">
+                          Author: {book.book_stock?.author || 'Unknown'}
+                        </div>
+                        <div className="text-sm">
+                          <Badge variant="outline">Balance: {book.balance}</Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No borrowed books found</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Student</TableHead>
+                    <TableHead>Registration</TableHead>
+                    <TableHead>Grade</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredStudents.map((student) => (
+                    <TableRow key={student.student_id}>
+                      <TableCell className="font-medium">
+                        {student.students?.student_name || 'Unknown'}
+                      </TableCell>
+                      <TableCell>{student.students?.registration_number}</TableCell>
+                      <TableCell>{student.students?.grade}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">Has Books</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {filteredStudents.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No students with books found
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -144,7 +144,7 @@ export const getBookTransactions = async (): Promise<BookTransaction[]> => {
     throw error;
   }
 
-  return data || [];
+  return (data || []) as BookTransaction[];
 };
 
 // Get student's book balance
@@ -201,4 +201,57 @@ export const getStudentsWithBooks = async () => {
   }, []);
 
   return uniqueStudents || [];
+};
+
+// Get books borrowed by a specific student
+export const getStudentBorrowedBooks = async (studentId: string) => {
+  console.log('Fetching borrowed books for student:', studentId);
+  
+  const { data, error } = await supabase
+    .from('book_transactions')
+    .select(`
+      book_id,
+      quantity,
+      transaction_type,
+      book_stock (
+        id,
+        book_title,
+        author
+      )
+    `)
+    .eq('student_id', studentId);
+
+  if (error) {
+    console.error('Error fetching student borrowed books:', error);
+    throw error;
+  }
+
+  // Calculate net borrowed books (distributions - returns)
+  const bookBalances = new Map();
+  
+  data?.forEach(transaction => {
+    const bookId = transaction.book_id;
+    const quantity = transaction.quantity || 1;
+    
+    if (!bookBalances.has(bookId)) {
+      bookBalances.set(bookId, {
+        book_id: bookId,
+        book_stock: transaction.book_stock,
+        balance: 0
+      });
+    }
+    
+    const currentBalance = bookBalances.get(bookId);
+    if (transaction.transaction_type === 'distribution') {
+      currentBalance.balance += quantity;
+    } else if (transaction.transaction_type === 'return') {
+      currentBalance.balance -= quantity;
+    }
+  });
+
+  // Filter only books with positive balance (actually borrowed)
+  const borrowedBooks = Array.from(bookBalances.values()).filter(book => book.balance > 0);
+  
+  console.log('Student borrowed books:', borrowedBooks);
+  return borrowedBooks;
 };
