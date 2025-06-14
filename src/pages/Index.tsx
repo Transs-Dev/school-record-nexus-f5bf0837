@@ -14,6 +14,7 @@ import FurnitureManagement from "@/components/FurnitureManagement";
 import BookManagement from "@/components/BookManagement";
 import LaboratoryManagement from "@/components/LaboratoryManagement";
 import SubjectManagement from "@/components/SubjectManagement";
+import SystemReset from "@/components/SystemReset";
 import TourGuide from "@/components/TourGuide";
 
 const Index = () => {
@@ -32,6 +33,7 @@ const Index = () => {
     { value: "laboratory", label: "Laboratory" },
     { value: "portal", label: "Student Portal" },
     { value: "subjects", label: "Subject Management" },
+    { value: "settings", label: "Settings" },
   ];
 
   const handleTabChange = (value: string) => {
@@ -141,6 +143,9 @@ const Index = () => {
             </TabsContent>
             <TabsContent value="subjects" className="mt-0">
               <SubjectManagement />
+            </TabsContent>
+            <TabsContent value="settings" className="mt-0">
+              <SystemReset />
             </TabsContent>
           </div>
         </Tabs>
