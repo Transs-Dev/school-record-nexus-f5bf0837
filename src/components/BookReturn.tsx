@@ -6,123 +6,57 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { RotateCcw } from "lucide-react";
-import { fetchAllStudents, Student } from "@/utils/studentDatabase";
-import { getBookStock, createBookTransaction, getStudentBookBalance, BookStock } from "@/utils/bookDatabase";
+import { ArrowRightLeft, Search, BookOpen } from "lucide-react";
+import { getStudentsWithBooks, createBookTransaction, getStudentBookBalance, updateBookStock } from "@/utils/bookDatabase";
+import { getStudents } from "@/utils/studentDatabase";
 
 interface BookReturnProps {
   onTransactionComplete: () => void;
 }
 
 const BookReturn = ({ onTransactionComplete }: BookReturnProps) => {
-  const [students, setStudents] = useState<Student[]>([]);
-  const [books, setBooks] = useState<BookStock[]>([]);
-  const [selectedGrade, setSelectedGrade] = useState<string>("");
+  const [students, setStudents] = useState<any[]>([]);
+  const [studentsWithBooks, setStudentsWithBooks] = useState<any[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<string>("");
   const [selectedBook, setSelectedBook] = useState<string>("");
-  const [studentBookBalance, setStudentBookBalance] = useState<number>(0);
   const [quantity, setQuantity] = useState<number>(1);
-  const [condition, setCondition] = useState<'good' | 'bad'>('good');
+  const [condition, setCondition] = useState<string>("good");
   const [compensationFee, setCompensationFee] = useState<number>(0);
   const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const { toast } = useToast();
 
   useEffect(() => {
     loadData();
   }, []);
 
-  useEffect(() => {
-    if (selectedStudent && selectedBook) {
-      loadStudentBookBalance();
-    }
-  }, [selectedStudent, selectedBook]);
-
-  useEffect(() => {
-    if (condition === 'good') {
-      setCompensationFee(0);
-    }
-  }, [condition]);
-
   const loadData = async () => {
     try {
-      const [studentsData, booksData] = await Promise.all([
-        fetchAllStudents(),
-        getBookStock()
+      const [allStudents, studentsWithBooksData] = await Promise.all([
+        getStudents(),
+        getStudentsWithBooks()
       ]);
-      
-      setStudents(studentsData);
-      setBooks(booksData);
+      setStudents(allStudents);
+      setStudentsWithBooks(studentsWithBooksData);
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
         title: "Error",
-        description: "Failed to load data",
+        description: "Failed to load student data",
         variant: "destructive",
       });
     }
-  };
-
-  const loadStudentBookBalance = async () => {
-    try {
-      const balance = await getStudentBookBalance(selectedStudent, selectedBook);
-      setStudentBookBalance(balance);
-    } catch (error) {
-      console.error('Error loading student book balance:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load student book balance",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const getUniqueGrades = () => {
-    const grades = [...new Set(students.map(student => student.grade))];
-    return grades.sort();
-  };
-
-  const getStudentsByGrade = (grade: string) => {
-    return students.filter(student => student.grade === grade);
-  };
-
-  const getSelectedBook = () => {
-    return books.find(book => book.id === selectedBook);
   };
 
   const handleReturn = async () => {
-    if (!selectedStudent) {
+    if (!selectedStudent || !selectedBook) {
       toast({
         title: "Error",
-        description: "Please select a student",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!selectedBook) {
-      toast({
-        title: "Error",
-        description: "Please select a book",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (quantity > studentBookBalance) {
-      toast({
-        title: "Error",
-        description: `Student only has ${studentBookBalance} copies of this book`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (condition === 'bad' && compensationFee <= 0) {
-      toast({
-        title: "Error",
-        description: "Please enter compensation fee for damaged book",
+        description: "Please select both student and book",
         variant: "destructive",
       });
       return;
@@ -130,15 +64,33 @@ const BookReturn = ({ onTransactionComplete }: BookReturnProps) => {
 
     try {
       setLoading(true);
+
+      // Check student's balance for this book
+      const balance = await getStudentBookBalance(selectedStudent, selectedBook);
       
+      if (balance < quantity) {
+        toast({
+          title: "Error",
+          description: `Student only has ${balance} of this book to return`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create return transaction
       await createBookTransaction({
         student_id: selectedStudent,
         book_id: selectedBook,
         transaction_type: 'return',
-        quantity: quantity,
-        condition: condition,
-        compensation_fee: condition === 'bad' ? compensationFee : 0,
-        notes: notes.trim() || undefined
+        quantity,
+        condition: condition as 'good' | 'bad' | 'new',
+        compensation_fee: compensationFee > 0 ? compensationFee : undefined,
+        notes: notes.trim() || undefined,
+      });
+
+      // Update book stock
+      await updateBookStock(selectedBook, {
+        available_quantity: quantity
       });
 
       toast({
@@ -147,17 +99,16 @@ const BookReturn = ({ onTransactionComplete }: BookReturnProps) => {
       });
 
       // Reset form
-      setSelectedGrade("");
       setSelectedStudent("");
       setSelectedBook("");
-      setStudentBookBalance(0);
       setQuantity(1);
-      setCondition('good');
+      setCondition("good");
       setCompensationFee(0);
       setNotes("");
       
-      // Notify parent
       onTransactionComplete();
+      loadData();
+      
     } catch (error) {
       console.error('Error returning book:', error);
       toast({
@@ -170,158 +121,163 @@ const BookReturn = ({ onTransactionComplete }: BookReturnProps) => {
     }
   };
 
-  const selectedBookData = getSelectedBook();
+  const filteredStudents = studentsWithBooks.filter(student =>
+    student.students?.student_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    student.students?.registration_number?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <RotateCcw className="h-5 w-5" />
-          <span>Return Books</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Grade Selection */}
-        <div>
-          <Label htmlFor="grade-select">Select Grade</Label>
-          <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-            <SelectTrigger>
-              <SelectValue placeholder="Choose a grade" />
-            </SelectTrigger>
-            <SelectContent>
-              {getUniqueGrades().map((grade) => (
-                <SelectItem key={grade} value={grade}>
-                  {grade}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Student Selection */}
-        {selectedGrade && (
-          <div>
-            <Label htmlFor="student-select">Select Student</Label>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Return Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <ArrowRightLeft className="h-5 w-5" />
+            <span>Return Books</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Student</Label>
+            <div className="flex items-center space-x-2 mb-2">
+              <Search className="h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search students..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-1"
+              />
+            </div>
             <Select value={selectedStudent} onValueChange={setSelectedStudent}>
               <SelectTrigger>
-                <SelectValue placeholder="Choose a student" />
+                <SelectValue placeholder="Select a student" />
               </SelectTrigger>
               <SelectContent>
-                {getStudentsByGrade(selectedGrade).map((student) => (
-                  <SelectItem key={student.id} value={student.id}>
-                    {student.student_name} - {student.registration_number}
+                {filteredStudents.map((student) => (
+                  <SelectItem key={student.student_id} value={student.student_id}>
+                    {student.students?.student_name} - {student.students?.registration_number}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-        )}
 
-        {/* Book Selection */}
-        {selectedStudent && (
-          <div>
-            <Label htmlFor="book-select">Select Book</Label>
+          <div className="space-y-2">
+            <Label>Book</Label>
             <Select value={selectedBook} onValueChange={setSelectedBook}>
               <SelectTrigger>
-                <SelectValue placeholder="Choose a book" />
+                <SelectValue placeholder="Select a book" />
               </SelectTrigger>
               <SelectContent>
-                {books.map((book) => (
-                  <SelectItem key={book.id} value={book.id}>
-                    {book.book_title} {book.author && `by ${book.author}`}
-                  </SelectItem>
-                ))}
+                <SelectItem value="book-1">Sample Book 1</SelectItem>
+                <SelectItem value="book-2">Sample Book 2</SelectItem>
               </SelectContent>
             </Select>
           </div>
-        )}
 
-        {/* Student's Book Balance */}
-        {selectedStudent && selectedBook && selectedBookData && (
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h4 className="font-medium text-green-800 mb-2">Student's Current Books</h4>
-            <div className="text-sm text-green-700">
-              <div><strong>Book:</strong> {selectedBookData.book_title}</div>
-              <div><strong>Quantity Borrowed:</strong> {studentBookBalance}</div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Quantity</Label>
+              <Input
+                type="number"
+                min="1"
+                value={quantity}
+                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Condition</Label>
+              <Select value={condition} onValueChange={setCondition}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="good">Good</SelectItem>
+                  <SelectItem value="bad">Bad/Damaged</SelectItem>
+                  <SelectItem value="new">Like New</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
-        )}
 
-        {/* Quantity */}
-        <div>
-          <Label htmlFor="quantity">Return Quantity</Label>
-          <Input
-            id="quantity"
-            type="number"
-            min="1"
-            max={studentBookBalance}
-            value={quantity}
-            onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-          />
-          <p className="text-xs text-gray-500 mt-1">Max: {studentBookBalance}</p>
-        </div>
+          {condition === "bad" && (
+            <div className="space-y-2">
+              <Label>Compensation Fee ($)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={compensationFee}
+                onChange={(e) => setCompensationFee(parseFloat(e.target.value) || 0)}
+                placeholder="0.00"
+              />
+            </div>
+          )}
 
-        {/* Condition Selection */}
-        <div>
-          <Label htmlFor="condition">Book Condition</Label>
-          <Select value={condition} onValueChange={(value: 'good' | 'bad') => setCondition(value)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="good">Good Condition</SelectItem>
-              <SelectItem value="bad">Bad Condition (Damaged)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Compensation Fee */}
-        {condition === 'bad' && (
-          <div>
-            <Label htmlFor="compensation-fee">Compensation Fee</Label>
-            <Input
-              id="compensation-fee"
-              type="number"
-              min="0"
-              step="0.01"
-              value={compensationFee}
-              onChange={(e) => setCompensationFee(parseFloat(e.target.value) || 0)}
-              placeholder="Enter compensation amount"
+          <div className="space-y-2">
+            <Label>Notes (Optional)</Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Any additional notes about the return..."
+              rows={3}
             />
           </div>
-        )}
 
-        {/* Notes */}
-        <div>
-          <Label htmlFor="notes">Notes (Optional)</Label>
-          <Textarea
-            id="notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Any additional notes..."
-            rows={3}
-          />
-        </div>
+          <Button 
+            onClick={handleReturn} 
+            disabled={loading || !selectedStudent || !selectedBook}
+            className="w-full"
+          >
+            {loading ? "Processing..." : "Process Return"}
+          </Button>
+        </CardContent>
+      </Card>
 
-        <Button 
-          onClick={handleReturn} 
-          disabled={!selectedStudent || !selectedBook || studentBookBalance === 0 || loading}
-          className="w-full"
-        >
-          {loading ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Processing Return...
-            </>
-          ) : (
-            <>
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Process Return
-            </Button>
-          )}
-        </Button>
-      </CardContent>
-    </Card>
+      {/* Students with Books */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <BookOpen className="h-5 w-5" />
+            <span>Students with Books</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Student</TableHead>
+                  <TableHead>Registration</TableHead>
+                  <TableHead>Grade</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredStudents.map((student) => (
+                  <TableRow key={student.student_id}>
+                    <TableCell className="font-medium">
+                      {student.students?.student_name || 'Unknown'}
+                    </TableCell>
+                    <TableCell>{student.students?.registration_number}</TableCell>
+                    <TableCell>{student.students?.grade}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">Has Books</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {filteredStudents.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No students with books found
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
