@@ -325,6 +325,99 @@ export type Database = {
           },
         ]
       }
+      laboratory_clearance: {
+        Row: {
+          compensation_fee: number
+          created_at: string
+          damage_type: string
+          id: string
+          notes: string | null
+          payment_date: string | null
+          payment_mode: string | null
+          payment_status: string
+          quantity: number | null
+          receipt_number: string | null
+          reported_date: string
+          student_id: string
+          tool_id: string
+          tracking_number: string
+          transaction_code: string | null
+          updated_at: string
+        }
+        Insert: {
+          compensation_fee?: number
+          created_at?: string
+          damage_type: string
+          id?: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_mode?: string | null
+          payment_status?: string
+          quantity?: number | null
+          receipt_number?: string | null
+          reported_date?: string
+          student_id: string
+          tool_id: string
+          tracking_number: string
+          transaction_code?: string | null
+          updated_at?: string
+        }
+        Update: {
+          compensation_fee?: number
+          created_at?: string
+          damage_type?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_mode?: string | null
+          payment_status?: string
+          quantity?: number | null
+          receipt_number?: string | null
+          reported_date?: string
+          student_id?: string
+          tool_id?: string
+          tracking_number?: string
+          transaction_code?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      laboratory_stock: {
+        Row: {
+          available_quantity: number
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          tool_name: string
+          total_quantity: number
+          unit_cost: number | null
+          updated_at: string
+        }
+        Insert: {
+          available_quantity?: number
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          tool_name: string
+          total_quantity?: number
+          unit_cost?: number | null
+          updated_at?: string
+        }
+        Update: {
+          available_quantity?: number
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          tool_name?: string
+          total_quantity?: number
+          unit_cost?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pin_settings: {
         Row: {
           created_at: string
@@ -522,6 +615,14 @@ export type Database = {
         Returns: string
       }
       generate_furniture_tracking_number: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      generate_lab_tracking_number: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      generate_receipt_number: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
