@@ -9,6 +9,30 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      classes: {
+        Row: {
+          class_name: string
+          class_teacher: string | null
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          class_name: string
+          class_teacher?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          class_name?: string
+          class_teacher?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       examination_marks: {
         Row: {
           academic_year: string
@@ -278,6 +302,7 @@ export type Database = {
       }
       subjects: {
         Row: {
+          class_teacher: string | null
           created_at: string
           id: string
           key: string
@@ -286,6 +311,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          class_teacher?: string | null
           created_at?: string
           id?: string
           key: string
@@ -294,6 +320,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          class_teacher?: string | null
           created_at?: string
           id?: string
           key?: string

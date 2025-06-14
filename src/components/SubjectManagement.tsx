@@ -4,9 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Plus, Edit, Trash2, Save, Loader2 } from "lucide-react";
+import { BookOpen, Plus, Edit, Trash2, Save, Loader2, UserCheck } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -15,36 +16,55 @@ interface Subject {
   key: string;
   label: string;
   max_marks: number;
+  class_teacher: string | null;
+}
+
+interface Class {
+  id: string;
+  class_name: string;
+  class_teacher: string | null;
 }
 
 const SubjectManagement = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [newSubject, setNewSubject] = useState({ key: "", label: "", max_marks: 100 });
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [newSubject, setNewSubject] = useState({ key: "", label: "", max_marks: 100, class_teacher: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchSubjects();
+    fetchData();
   }, []);
 
-  const fetchSubjects = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Fetch subjects
+      const { data: subjectsData, error: subjectsError } = await supabase
         .from('subjects')
         .select('*')
         .order('label');
 
-      if (error) throw error;
+      if (subjectsError) throw subjectsError;
 
-      setSubjects(data || []);
+      // Fetch classes
+      const { data: classesData, error: classesError } = await supabase
+        .from('classes')
+        .select('*')
+        .order('class_name');
+
+      if (classesError) throw classesError;
+
+      setSubjects(subjectsData || []);
+      setClasses(classesData || []);
     } catch (error) {
-      console.error('Error fetching subjects:', error);
+      console.error('Error fetching data:', error);
       toast({
-        title: "Error Loading Subjects",
-        description: "Failed to load subjects from database. Please try again.",
+        title: "Error Loading Data",
+        description: "Failed to load subjects and classes from database. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -79,7 +99,8 @@ const SubjectManagement = () => {
         .insert([{
           key: newSubject.key.toLowerCase().replace(/\s+/g, '_'),
           label: newSubject.label,
-          max_marks: newSubject.max_marks
+          max_marks: newSubject.max_marks,
+          class_teacher: newSubject.class_teacher || null
         }])
         .select()
         .single();
@@ -87,7 +108,7 @@ const SubjectManagement = () => {
       if (error) throw error;
 
       setSubjects([...subjects, data]);
-      setNewSubject({ key: "", label: "", max_marks: 100 });
+      setNewSubject({ key: "", label: "", max_marks: 100, class_teacher: "" });
       
       toast({
         title: "Subject Added",
@@ -120,7 +141,8 @@ const SubjectManagement = () => {
         .update({
           key: editingSubject.key,
           label: editingSubject.label,
-          max_marks: editingSubject.max_marks
+          max_marks: editingSubject.max_marks,
+          class_teacher: editingSubject.class_teacher || null
         })
         .eq('id', editingId)
         .select()
@@ -228,7 +250,7 @@ const SubjectManagement = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label htmlFor="subject-key">Subject Key</Label>
               <Input
@@ -258,6 +280,16 @@ const SubjectManagement = () => {
                 max="200"
                 value={newSubject.max_marks}
                 onChange={(e) => setNewSubject(prev => ({ ...prev, max_marks: parseInt(e.target.value) || 100 }))}
+                disabled={submitting}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="class-teacher">Class Teacher</Label>
+              <Input
+                id="class-teacher"
+                placeholder="e.g., Mr. Smith"
+                value={newSubject.class_teacher}
+                onChange={(e) => setNewSubject(prev => ({ ...prev, class_teacher: e.target.value }))}
                 disabled={submitting}
               />
             </div>
@@ -293,7 +325,7 @@ const SubjectManagement = () => {
             </Badge>
           </CardTitle>
           <CardDescription>
-            Manage existing subjects and their maximum marks
+            Manage existing subjects, their maximum marks, and class teachers
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -304,6 +336,7 @@ const SubjectManagement = () => {
                   <TableHead>Subject Key</TableHead>
                   <TableHead>Subject Name</TableHead>
                   <TableHead className="text-center">Maximum Marks</TableHead>
+                  <TableHead>Class Teacher</TableHead>
                   <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -347,6 +380,27 @@ const SubjectManagement = () => {
                         />
                       ) : (
                         <Badge variant="outline">{subject.max_marks}</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingId === subject.id ? (
+                        <Input
+                          value={editingSubject?.class_teacher || ""}
+                          onChange={(e) => setEditingSubject(prev => prev ? { ...prev, class_teacher: e.target.value } : null)}
+                          placeholder="Enter teacher name"
+                          disabled={submitting}
+                        />
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          {subject.class_teacher ? (
+                            <>
+                              <UserCheck className="w-4 h-4 text-green-600" />
+                              <span>{subject.class_teacher}</span>
+                            </>
+                          ) : (
+                            <span className="text-gray-400 italic">No teacher assigned</span>
+                          )}
+                        </div>
                       )}
                     </TableCell>
                     <TableCell className="text-center">
@@ -420,7 +474,8 @@ const SubjectManagement = () => {
         <h4 className="font-medium text-yellow-800 mb-2">Important Note</h4>
         <p className="text-sm text-yellow-700">
           Changes to subjects will affect all examination records. The subjects are now persisted in the database 
-          and will be automatically reflected in the marks entry section.
+          and will be automatically reflected in the marks entry section. Class teachers can be assigned to subjects 
+          for better organization and accountability.
         </p>
       </div>
     </div>
