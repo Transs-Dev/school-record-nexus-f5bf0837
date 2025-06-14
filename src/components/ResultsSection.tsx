@@ -1,11 +1,11 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Trophy, Medal, Award, BookOpen, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Trophy, Medal, Award, BookOpen, Loader2, Printer, Download } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { 
   fetchStudentsByGrade, 
@@ -162,6 +162,203 @@ const ResultsSection = () => {
     return "destructive";
   };
 
+  const getLetterGrade = (totalMarks: number, maxPossibleMarks: number) => {
+    const percentage = maxPossibleMarks > 0 ? (totalMarks / maxPossibleMarks) * 100 : 0;
+    if (percentage >= 80) return "A";
+    if (percentage >= 70) return "B";
+    if (percentage >= 60) return "C";
+    if (percentage >= 50) return "D";
+    return "E";
+  };
+
+  const handlePrint = () => {
+    if (!selectedGrade || !selectedTerm || examResults.length === 0) {
+      toast({
+        title: "No Data to Print",
+        description: "Please select a grade and term with available results.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const maxPossibleMarks = subjects.reduce((sum, subject) => sum + subject.max_marks, 0);
+    
+    const printContent = `
+      <html>
+        <head>
+          <title>Student Performance Report - ${selectedGrade} ${selectedTerm}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+            .header h1 { margin: 0; color: #333; }
+            .header p { margin: 5px 0; color: #666; }
+            .info-section { margin-bottom: 20px; }
+            .info-section strong { color: #333; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; font-weight: bold; }
+            .position { font-weight: bold; }
+            .grade-a { color: #16a34a; }
+            .grade-b { color: #2563eb; }
+            .grade-c { color: #ca8a04; }
+            .grade-d { color: #dc2626; }
+            .grade-e { color: #991b1b; }
+            .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #ddd; padding-top: 10px; }
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Student Performance Report</h1>
+            <p>Academic Excellence Analysis</p>
+          </div>
+          
+          <div class="info-section">
+            <p><strong>Grade:</strong> ${selectedGrade}</p>
+            <p><strong>Term:</strong> ${selectedTerm}</p>
+            <p><strong>Academic Year:</strong> ${currentYear}</p>
+            <p><strong>Total Students:</strong> ${examResults.length}</p>
+            <p><strong>Report Generated:</strong> ${new Date().toLocaleDateString()}</p>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Position</th>
+                <th>Registration Number</th>
+                <th>Student Name</th>
+                ${subjects.map(subject => `<th>${subject.label}</th>`).join('')}
+                <th>Total Marks</th>
+                <th>Grade</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${examResults.map((result, index) => {
+                const student = students.find(s => s.id === result.student_id);
+                const position = index + 1;
+                const letterGrade = getLetterGrade(result.total_marks || 0, maxPossibleMarks);
+                const gradeClass = `grade-${letterGrade.toLowerCase()}`;
+                
+                if (!student) return '';
+                
+                return `
+                  <tr>
+                    <td class="position">#${position}</td>
+                    <td>${student.registration_number}</td>
+                    <td>${student.student_name}</td>
+                    ${subjects.map(subject => {
+                      const marks = getSubjectMark(result, subject.key);
+                      return `<td>${marks}</td>`;
+                    }).join('')}
+                    <td><strong>${result.total_marks || 0}/${maxPossibleMarks}</strong></td>
+                    <td class="${gradeClass}"><strong>${letterGrade}</strong></td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <p>Generated by School Management System | ${new Date().toLocaleString()}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+    } else {
+      toast({
+        title: "Print Failed",
+        description: "Unable to open print window. Please check your browser settings.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDownload = () => {
+    if (!selectedGrade || !selectedTerm || examResults.length === 0) {
+      toast({
+        title: "No Data to Download",
+        description: "Please select a grade and term with available results.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const maxPossibleMarks = subjects.reduce((sum, subject) => sum + subject.max_marks, 0);
+    
+    // Create CSV content
+    const headers = [
+      'Position',
+      'Registration Number',
+      'Student Name',
+      ...subjects.map(subject => subject.label),
+      'Total Marks',
+      'Max Possible',
+      'Percentage',
+      'Grade'
+    ];
+
+    const csvRows = [
+      headers.join(','),
+      ...examResults.map((result, index) => {
+        const student = students.find(s => s.id === result.student_id);
+        const position = index + 1;
+        const totalMarks = result.total_marks || 0;
+        const percentage = maxPossibleMarks > 0 ? ((totalMarks / maxPossibleMarks) * 100).toFixed(1) : '0.0';
+        const letterGrade = getLetterGrade(totalMarks, maxPossibleMarks);
+        
+        if (!student) return '';
+        
+        const row = [
+          position,
+          student.registration_number,
+          `"${student.student_name}"`, // Wrap in quotes to handle commas in names
+          ...subjects.map(subject => getSubjectMark(result, subject.key)),
+          totalMarks,
+          maxPossibleMarks,
+          `${percentage}%`,
+          letterGrade
+        ];
+        
+        return row.join(',');
+      }).filter(row => row) // Remove empty rows
+    ];
+
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `student_performance_${selectedGrade.replace(' ', '_')}_${selectedTerm.replace(' ', '_')}_${currentYear}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Download Complete",
+        description: `Student performance data downloaded successfully.`,
+      });
+    } else {
+      toast({
+        title: "Download Failed",
+        description: "Your browser doesn't support file downloads.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -203,6 +400,28 @@ const ResultsSection = () => {
         </div>
       </div>
 
+      {/* Print and Download Actions */}
+      {selectedGrade && selectedTerm && !loading && examResults.length > 0 && (
+        <div className="flex gap-2">
+          <Button 
+            onClick={handlePrint}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Printer className="w-4 h-4" />
+            Print Results
+          </Button>
+          <Button 
+            onClick={handleDownload}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Download CSV
+          </Button>
+        </div>
+      )}
+
       {/* Loading State */}
       {loading && (
         <div className="flex items-center justify-center py-12">
@@ -237,12 +456,15 @@ const ResultsSection = () => {
                       </TableHead>
                     ))}
                     <TableHead className="min-w-[100px] text-center">Total</TableHead>
+                    <TableHead className="min-w-[80px] text-center">Grade</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {examResults.map((result, index) => {
                     const student = getStudentByExamResult(result);
                     const position = index + 1;
+                    const maxPossibleMarks = subjects.reduce((sum, subject) => sum + subject.max_marks, 0);
+                    const letterGrade = getLetterGrade(result.total_marks || 0, maxPossibleMarks);
                     
                     if (!student) return null;
                     
@@ -274,10 +496,15 @@ const ResultsSection = () => {
                         })}
                         <TableCell className="text-center">
                           <Badge 
-                            variant={getMarksBadgeVariant(result.total_marks || 0, subjects.reduce((sum, subject) => sum + subject.max_marks, 0))}
+                            variant={getMarksBadgeVariant(result.total_marks || 0, maxPossibleMarks)}
                             className="text-lg font-bold"
                           >
                             {result.total_marks || 0}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline" className="font-bold">
+                            {letterGrade}
                           </Badge>
                         </TableCell>
                       </TableRow>
