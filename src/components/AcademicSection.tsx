@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import {
   Card,
@@ -107,8 +108,12 @@ const AcademicSection = () => {
         marksState[student.id] = {};
         subjects.forEach((subject) => {
           const existingExam = marksData.find(mark => mark.student_id === student.id);
-          if (existingExam) {
-            const subjectMark = existingExam.subject_marks?.find(sm => sm.subject_id === subject.id);
+          if (existingExam && existingExam.subject_marks) {
+            // Properly type cast and handle the Json type
+            const subjectMarksArray = existingExam.subject_marks as SubjectMark[];
+            const subjectMark = Array.isArray(subjectMarksArray) 
+              ? subjectMarksArray.find(sm => sm.subject_id === subject.id)
+              : null;
             marksState[student.id][subject.id] = subjectMark?.marks || 0;
           } else {
             marksState[student.id][subject.id] = 0;

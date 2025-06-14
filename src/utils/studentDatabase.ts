@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { type Database } from "@/integrations/supabase/types";
 
@@ -20,7 +19,7 @@ export interface ExamData {
   remarks?: string;
 }
 
-export const addStudent = async (student: Omit<Student, "id" | "created_at" | "updated_at" | "registration_number">): Promise<Student> => {
+export const addStudent = async (student: Omit<Student, "id" | "created_at" | "updated_at">): Promise<Student> => {
   const { data, error } = await supabase
     .from("students")
     .insert([student])
