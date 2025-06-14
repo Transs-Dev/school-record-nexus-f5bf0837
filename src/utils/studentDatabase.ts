@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { type Database } from "@/integrations/supabase/types";
 
@@ -102,27 +101,63 @@ export const saveExaminationMarks = async (examData: ExamData): Promise<Examinat
   console.log("Attempting to save examination marks:", examData);
   
   try {
-    const { data, error } = await supabase
+    // First check if a record already exists
+    const { data: existingRecord, error: fetchError } = await supabase
       .from("examination_marks")
-      .upsert({
-        student_id: examData.student_id,
-        grade: examData.grade,
-        term: examData.term,
-        academic_year: examData.academic_year,
-        subject_marks: examData.subject_marks as any,
-        total_marks: examData.total_marks,
-        remarks: examData.remarks
-      })
-      .select()
-      .single();
+      .select("id")
+      .eq("student_id", examData.student_id)
+      .eq("grade", examData.grade)
+      .eq("term", examData.term)
+      .eq("academic_year", examData.academic_year)
+      .maybeSingle();
 
-    if (error) {
-      console.error("Error saving examination marks:", error);
-      throw error;
+    if (fetchError) {
+      console.error("Error checking existing record:", fetchError);
+      throw fetchError;
     }
 
-    console.log("Successfully saved examination marks:", data);
-    return data;
+    let result;
+    
+    if (existingRecord) {
+      // Update existing record
+      console.log("Updating existing examination marks record:", existingRecord.id);
+      const { data, error } = await supabase
+        .from("examination_marks")
+        .update({
+          subject_marks: examData.subject_marks as any,
+          total_marks: examData.total_marks,
+          remarks: examData.remarks,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", existingRecord.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      result = data;
+    } else {
+      // Insert new record
+      console.log("Inserting new examination marks record");
+      const { data, error } = await supabase
+        .from("examination_marks")
+        .insert({
+          student_id: examData.student_id,
+          grade: examData.grade,
+          term: examData.term,
+          academic_year: examData.academic_year,
+          subject_marks: examData.subject_marks as any,
+          total_marks: examData.total_marks,
+          remarks: examData.remarks
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      result = data;
+    }
+
+    console.log("Successfully saved examination marks:", result);
+    return result;
   } catch (error) {
     console.error("Exception in saveExaminationMarks:", error);
     throw error;
@@ -177,7 +212,6 @@ export const getStudentCountByGrade = async (): Promise<Record<string, number>> 
   return gradeCount;
 };
 
-// Add missing functions that other components are trying to import
 export const calculateStudentPosition = async (studentId: string, grade: string, term: string, academicYear: string): Promise<number> => {
   try {
     // First get the student's total marks
