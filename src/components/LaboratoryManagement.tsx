@@ -28,6 +28,8 @@ const LaboratoryManagement = () => {
   const [tools, setTools] = useState<LaboratoryStock[]>([]);
   const [clearances, setClearances] = useState<LaboratoryClearance[]>([]);
   const [students, setStudents] = useState<any[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<any[]>([]);
+  const [studentsWithClearances, setStudentsWithClearances] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -40,19 +42,51 @@ const LaboratoryManagement = () => {
     unit_cost: 0
   });
 
-  // Clearance creation states
+  // Enhanced clearance creation states
   const [newClearance, setNewClearance] = useState({
     student_id: "",
     tool_id: "",
     damage_type: "",
     quantity: 1,
     compensation_fee: 0,
-    notes: ""
+    notes: "",
+    grade: "",
+    term: "",
+    academic_year: new Date().getFullYear().toString()
   });
+
+  // Selected tool for automatic cost calculation
+  const [selectedTool, setSelectedTool] = useState<LaboratoryStock | null>(null);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // Filter students by grade when grade is selected
+  useEffect(() => {
+    if (newClearance.grade) {
+      const filtered = students.filter(student => student.grade === newClearance.grade);
+      setFilteredStudents(filtered);
+    } else {
+      setFilteredStudents([]);
+    }
+  }, [newClearance.grade, students]);
+
+  // Filter students who have clearance records for the clearances tab
+  useEffect(() => {
+    const studentsWithRecords = students.filter(student => 
+      clearances.some(clearance => clearance.student_id === student.id)
+    );
+    setStudentsWithClearances(studentsWithRecords);
+  }, [students, clearances]);
+
+  // Update compensation fee when tool or quantity changes
+  useEffect(() => {
+    if (selectedTool && newClearance.quantity > 0) {
+      const totalCost = (selectedTool.unit_cost || 0) * newClearance.quantity;
+      setNewClearance(prev => ({ ...prev, compensation_fee: totalCost }));
+    }
+  }, [selectedTool, newClearance.quantity]);
 
   const loadData = async () => {
     try {
@@ -118,18 +152,29 @@ const LaboratoryManagement = () => {
     }
   };
 
+  const handleToolSelect = (toolId: string) => {
+    const tool = tools.find(t => t.id === toolId);
+    setSelectedTool(tool || null);
+    setNewClearance(prev => ({ ...prev, tool_id: toolId }));
+  };
+
   const handleCreateClearance = async () => {
-    if (!newClearance.student_id || !newClearance.tool_id || !newClearance.damage_type) {
+    if (!newClearance.student_id || !newClearance.tool_id || !newClearance.damage_type || !newClearance.grade || !newClearance.term) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields including grade and term",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      await createLaboratoryClearance(newClearance);
+      const clearanceData = {
+        ...newClearance,
+        breakage_recorded_at: new Date().toISOString()
+      };
+      
+      await createLaboratoryClearance(clearanceData);
       toast({
         title: "Success",
         description: "Laboratory clearance record created successfully",
@@ -140,8 +185,13 @@ const LaboratoryManagement = () => {
         damage_type: "",
         quantity: 1,
         compensation_fee: 0,
-        notes: ""
+        notes: "",
+        grade: "",
+        term: "",
+        academic_year: new Date().getFullYear().toString()
       });
+      setSelectedTool(null);
+      setFilteredStudents([]);
       loadData();
     } catch (error) {
       toast({
@@ -312,19 +362,70 @@ const LaboratoryManagement = () => {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <AlertTriangle className="h-5 w-5" />
-                <span>Create Clearance Record</span>
+                <span>Record Broken Laboratory Tool</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Student</Label>
-                  <Select value={newClearance.student_id} onValueChange={(value) => setNewClearance({ ...newClearance, student_id: value })}>
+                  <Label>Grade *</Label>
+                  <Select 
+                    value={newClearance.grade} 
+                    onValueChange={(value) => setNewClearance({ ...newClearance, grade: value, student_id: "" })}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select student" />
+                      <SelectValue placeholder="Select grade" />
                     </SelectTrigger>
                     <SelectContent>
-                      {students.map((student) => (
+                      <SelectItem value="Grade 1">Grade 1</SelectItem>
+                      <SelectItem value="Grade 2">Grade 2</SelectItem>
+                      <SelectItem value="Grade 3">Grade 3</SelectItem>
+                      <SelectItem value="Grade 4">Grade 4</SelectItem>
+                      <SelectItem value="Grade 5">Grade 5</SelectItem>
+                      <SelectItem value="Grade 6">Grade 6</SelectItem>
+                      <SelectItem value="Grade 7">Grade 7</SelectItem>
+                      <SelectItem value="Grade 8">Grade 8</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Term *</Label>
+                  <Select value={newClearance.term} onValueChange={(value) => setNewClearance({ ...newClearance, term: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select term" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Term 1">Term 1</SelectItem>
+                      <SelectItem value="Term 2">Term 2</SelectItem>
+                      <SelectItem value="Term 3">Term 3</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Academic Year</Label>
+                  <Input
+                    value={newClearance.academic_year}
+                    onChange={(e) => setNewClearance({ ...newClearance, academic_year: e.target.value })}
+                    placeholder="2024"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Student *</Label>
+                  <Select 
+                    value={newClearance.student_id} 
+                    onValueChange={(value) => setNewClearance({ ...newClearance, student_id: value })}
+                    disabled={!newClearance.grade}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={newClearance.grade ? "Select student" : "Select grade first"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredStudents.map((student) => (
                         <SelectItem key={student.id} value={student.id}>
                           {student.student_name} - {student.registration_number}
                         </SelectItem>
@@ -334,15 +435,15 @@ const LaboratoryManagement = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Tool</Label>
-                  <Select value={newClearance.tool_id} onValueChange={(value) => setNewClearance({ ...newClearance, tool_id: value })}>
+                  <Label>Tool *</Label>
+                  <Select value={newClearance.tool_id} onValueChange={handleToolSelect}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select tool" />
                     </SelectTrigger>
                     <SelectContent>
                       {tools.map((tool) => (
                         <SelectItem key={tool.id} value={tool.id}>
-                          {tool.tool_name}
+                          {tool.tool_name} - {formatKenyanShillings(tool.unit_cost || 0)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -350,9 +451,24 @@ const LaboratoryManagement = () => {
                 </div>
               </div>
 
+              {selectedTool && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">{selectedTool.tool_name}</p>
+                      <p className="text-sm text-gray-600">Unit Cost: {formatKenyanShillings(selectedTool.unit_cost || 0)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600">Category: {selectedTool.category}</p>
+                      <p className="text-sm text-gray-600">Available: {selectedTool.available_quantity}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Damage Type</Label>
+                  <Label>Damage Type *</Label>
                   <Select value={newClearance.damage_type} onValueChange={(value) => setNewClearance({ ...newClearance, damage_type: value })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select damage type" />
@@ -382,6 +498,8 @@ const LaboratoryManagement = () => {
                     step="0.01"
                     value={newClearance.compensation_fee}
                     onChange={(e) => setNewClearance({ ...newClearance, compensation_fee: parseFloat(e.target.value) || 0 })}
+                    className="bg-gray-50"
+                    readOnly
                   />
                 </div>
               </div>
@@ -396,7 +514,7 @@ const LaboratoryManagement = () => {
               </div>
 
               <Button onClick={handleCreateClearance} disabled={loading}>
-                Create Clearance Record
+                Record Breakage
               </Button>
             </CardContent>
           </Card>
@@ -411,6 +529,7 @@ const LaboratoryManagement = () => {
                   <TableRow>
                     <TableHead>Tracking Number</TableHead>
                     <TableHead>Student</TableHead>
+                    <TableHead>Grade</TableHead>
                     <TableHead>Tool</TableHead>
                     <TableHead>Damage Type</TableHead>
                     <TableHead>Compensation</TableHead>
@@ -423,6 +542,7 @@ const LaboratoryManagement = () => {
                     <TableRow key={clearance.id}>
                       <TableCell className="font-mono">{clearance.tracking_number}</TableCell>
                       <TableCell>{clearance.students?.student_name}</TableCell>
+                      <TableCell>{clearance.grade || clearance.students?.grade}</TableCell>
                       <TableCell>{clearance.laboratory_stock?.tool_name}</TableCell>
                       <TableCell className="capitalize">{clearance.damage_type}</TableCell>
                       <TableCell>{formatKenyanShillings(clearance.compensation_fee)}</TableCell>

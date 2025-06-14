@@ -24,6 +24,10 @@ export interface LaboratoryClearance {
   payment_date?: string;
   receipt_number?: string;
   notes?: string;
+  grade?: string;
+  term?: string;
+  academic_year?: string;
+  breakage_recorded_at?: string;
   created_at: string;
   students?: {
     student_name: string;
@@ -158,6 +162,10 @@ export const getLaboratoryClearances = async (): Promise<LaboratoryClearance[]> 
     payment_date: item.payment_date,
     receipt_number: item.receipt_number,
     notes: item.notes,
+    grade: item.grade,
+    term: item.term,
+    academic_year: item.academic_year,
+    breakage_recorded_at: item.breakage_recorded_at,
     created_at: item.created_at,
     students: Array.isArray(item.students) ? item.students[0] : item.students,
     laboratory_stock: Array.isArray(item.laboratory_stock) ? item.laboratory_stock[0] : item.laboratory_stock
@@ -234,6 +242,10 @@ export const getClearancesByStudent = async (studentId: string): Promise<Laborat
     payment_date: item.payment_date,
     receipt_number: item.receipt_number,
     notes: item.notes,
+    grade: item.grade,
+    term: item.term,
+    academic_year: item.academic_year,
+    breakage_recorded_at: item.breakage_recorded_at,
     created_at: item.created_at,
     laboratory_stock: Array.isArray(item.laboratory_stock) ? item.laboratory_stock[0] : item.laboratory_stock
   }));

@@ -327,9 +327,12 @@ export type Database = {
       }
       laboratory_clearance: {
         Row: {
+          academic_year: string | null
+          breakage_recorded_at: string | null
           compensation_fee: number
           created_at: string
           damage_type: string
+          grade: string | null
           id: string
           notes: string | null
           payment_date: string | null
@@ -339,15 +342,19 @@ export type Database = {
           receipt_number: string | null
           reported_date: string
           student_id: string
+          term: string | null
           tool_id: string
           tracking_number: string
           transaction_code: string | null
           updated_at: string
         }
         Insert: {
+          academic_year?: string | null
+          breakage_recorded_at?: string | null
           compensation_fee?: number
           created_at?: string
           damage_type: string
+          grade?: string | null
           id?: string
           notes?: string | null
           payment_date?: string | null
@@ -357,15 +364,19 @@ export type Database = {
           receipt_number?: string | null
           reported_date?: string
           student_id: string
+          term?: string | null
           tool_id: string
           tracking_number: string
           transaction_code?: string | null
           updated_at?: string
         }
         Update: {
+          academic_year?: string | null
+          breakage_recorded_at?: string | null
           compensation_fee?: number
           created_at?: string
           damage_type?: string
+          grade?: string | null
           id?: string
           notes?: string | null
           payment_date?: string | null
@@ -375,6 +386,7 @@ export type Database = {
           receipt_number?: string | null
           reported_date?: string
           student_id?: string
+          term?: string | null
           tool_id?: string
           tracking_number?: string
           transaction_code?: string | null
