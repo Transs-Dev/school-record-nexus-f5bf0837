@@ -34,7 +34,6 @@ const LaboratoryManagement = () => {
   // Tool management states
   const [newTool, setNewTool] = useState({
     tool_name: "",
-    description: "",
     category: "",
     total_quantity: 0,
     available_quantity: 0,
@@ -78,6 +77,14 @@ const LaboratoryManagement = () => {
     }
   };
 
+  const formatKenyanShillings = (amount: number) => {
+    return new Intl.NumberFormat('en-KE', {
+      style: 'currency',
+      currency: 'KES',
+      minimumFractionDigits: 2
+    }).format(amount);
+  };
+
   const handleAddTool = async () => {
     if (!newTool.tool_name.trim()) {
       toast({
@@ -96,7 +103,6 @@ const LaboratoryManagement = () => {
       });
       setNewTool({
         tool_name: "",
-        description: "",
         category: "",
         total_quantity: 0,
         available_quantity: 0,
@@ -225,15 +231,6 @@ const LaboratoryManagement = () => {
                   </Select>
                 </div>
               </div>
-              
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea
-                  value={newTool.description}
-                  onChange={(e) => setNewTool({ ...newTool, description: e.target.value })}
-                  placeholder="Tool description"
-                />
-              </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
@@ -253,7 +250,7 @@ const LaboratoryManagement = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Unit Cost ($)</Label>
+                  <Label>Unit Cost (KES)</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -292,7 +289,7 @@ const LaboratoryManagement = () => {
                       <TableCell>{tool.category}</TableCell>
                       <TableCell>{tool.available_quantity}</TableCell>
                       <TableCell>{tool.total_quantity}</TableCell>
-                      <TableCell>${tool.unit_cost?.toFixed(2)}</TableCell>
+                      <TableCell>{formatKenyanShillings(tool.unit_cost || 0)}</TableCell>
                       <TableCell>
                         {tool.available_quantity === 0 ? (
                           <Badge variant="destructive">Out of Stock</Badge>
@@ -379,7 +376,7 @@ const LaboratoryManagement = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Compensation Fee ($)</Label>
+                  <Label>Compensation Fee (KES)</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -428,7 +425,7 @@ const LaboratoryManagement = () => {
                       <TableCell>{clearance.students?.student_name}</TableCell>
                       <TableCell>{clearance.laboratory_stock?.tool_name}</TableCell>
                       <TableCell className="capitalize">{clearance.damage_type}</TableCell>
-                      <TableCell>${clearance.compensation_fee.toFixed(2)}</TableCell>
+                      <TableCell>{formatKenyanShillings(clearance.compensation_fee)}</TableCell>
                       <TableCell>{getStatusBadge(clearance.payment_status)}</TableCell>
                       <TableCell>
                         {clearance.payment_status === 'pending' && (
@@ -478,7 +475,7 @@ const LaboratoryManagement = () => {
                 <div className="p-4 border rounded-lg">
                   <h3 className="font-semibold text-lg">Total Compensation</h3>
                   <p className="text-2xl font-bold text-green-600">
-                    ${clearances.reduce((total, c) => total + c.compensation_fee, 0).toFixed(2)}
+                    {formatKenyanShillings(clearances.reduce((total, c) => total + c.compensation_fee, 0))}
                   </p>
                 </div>
               </div>

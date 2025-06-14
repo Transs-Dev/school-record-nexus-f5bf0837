@@ -4,7 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 export interface LaboratoryStock {
   id: string;
   tool_name: string;
-  description?: string;
   category?: string;
   total_quantity: number;
   available_quantity: number;

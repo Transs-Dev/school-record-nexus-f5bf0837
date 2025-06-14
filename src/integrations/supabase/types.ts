@@ -380,7 +380,22 @@ export type Database = {
           transaction_code?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_laboratory_clearance_student"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_laboratory_clearance_tool"
+            columns: ["tool_id"]
+            isOneToOne: false
+            referencedRelation: "laboratory_stock"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       laboratory_stock: {
         Row: {
