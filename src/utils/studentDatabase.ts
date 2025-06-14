@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { type Database } from "@/integrations/supabase/types";
 
@@ -51,6 +52,9 @@ export const fetchAllStudents = async (): Promise<Student[]> => {
   return data || [];
 };
 
+// Add the missing getStudents export (alias for fetchAllStudents)
+export const getStudents = fetchAllStudents;
+
 export const fetchStudentsByGrade = async (grade: string): Promise<Student[]> => {
   const { data, error } = await supabase
     .from("students")
@@ -95,26 +99,34 @@ export const deleteStudent = async (id: string): Promise<void> => {
 };
 
 export const saveExaminationMarks = async (examData: ExamData): Promise<ExaminationMark> => {
-  const { data, error } = await supabase
-    .from("examination_marks")
-    .upsert({
-      student_id: examData.student_id,
-      grade: examData.grade,
-      term: examData.term,
-      academic_year: examData.academic_year,
-      subject_marks: examData.subject_marks as any,
-      total_marks: examData.total_marks,
-      remarks: examData.remarks
-    })
-    .select()
-    .single();
+  console.log("Attempting to save examination marks:", examData);
+  
+  try {
+    const { data, error } = await supabase
+      .from("examination_marks")
+      .upsert({
+        student_id: examData.student_id,
+        grade: examData.grade,
+        term: examData.term,
+        academic_year: examData.academic_year,
+        subject_marks: examData.subject_marks as any,
+        total_marks: examData.total_marks,
+        remarks: examData.remarks
+      })
+      .select()
+      .single();
 
-  if (error) {
-    console.error("Error saving examination marks:", error);
+    if (error) {
+      console.error("Error saving examination marks:", error);
+      throw error;
+    }
+
+    console.log("Successfully saved examination marks:", data);
+    return data;
+  } catch (error) {
+    console.error("Exception in saveExaminationMarks:", error);
     throw error;
   }
-
-  return data;
 };
 
 export const fetchExaminationMarks = async (grade: string, term: string, academicYear: string): Promise<ExaminationMark[]> => {

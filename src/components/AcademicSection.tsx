@@ -19,6 +19,7 @@ const AcademicSection = () => {
   const [academicYear, setAcademicYear] = useState(new Date().getFullYear().toString());
   const [subjectMarks, setSubjectMarks] = useState<Record<string, number>>({});
   const [remarks, setRemarks] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   // Define all subjects in the order requested
@@ -52,7 +53,9 @@ const AcademicSection = () => {
 
   const loadStudentsByGrade = async () => {
     try {
+      console.log("Loading students for grade:", selectedGrade);
       const studentsData = await fetchStudentsByGrade(selectedGrade);
+      console.log("Students loaded:", studentsData);
       setStudents(studentsData);
       setSelectedStudent(""); // Reset selected student when grade changes
     } catch (error) {
@@ -78,6 +81,16 @@ const AcademicSection = () => {
   };
 
   const handleSubmit = async () => {
+    console.log("Starting examination marks submission...");
+    console.log("Form data:", {
+      selectedStudent,
+      selectedGrade,
+      selectedTerm,
+      academicYear,
+      subjectMarks,
+      remarks
+    });
+
     if (!selectedStudent || !selectedGrade || !selectedTerm || !academicYear) {
       toast({
         title: "Error",
@@ -87,14 +100,29 @@ const AcademicSection = () => {
       return;
     }
 
-    const totalMarks = calculateTotalMarks();
-    const subjectMarksArray: SubjectMark[] = Object.entries(subjectMarks).map(([subject_id, marks]) => ({
-      subject_id,
-      marks
-    }));
+    // Validate that at least one subject has marks
+    const hasMarks = Object.values(subjectMarks).some(mark => mark > 0);
+    if (!hasMarks) {
+      toast({
+        title: "Error", 
+        description: "Please enter marks for at least one subject",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
-      await saveExaminationMarks({
+      const totalMarks = calculateTotalMarks();
+      const subjectMarksArray: SubjectMark[] = Object.entries(subjectMarks)
+        .filter(([_, marks]) => marks > 0) // Only include subjects with marks
+        .map(([subject_id, marks]) => ({
+          subject_id,
+          marks
+        }));
+
+      console.log("Prepared data for submission:", {
         student_id: selectedStudent,
         grade: selectedGrade,
         term: selectedTerm,
@@ -103,6 +131,18 @@ const AcademicSection = () => {
         total_marks: totalMarks,
         remarks: remarks
       });
+
+      const result = await saveExaminationMarks({
+        student_id: selectedStudent,
+        grade: selectedGrade,
+        term: selectedTerm,
+        academic_year: academicYear,
+        subject_marks: subjectMarksArray,
+        total_marks: totalMarks,
+        remarks: remarks
+      });
+
+      console.log("Submission successful:", result);
 
       toast({
         title: "Success",
@@ -114,11 +154,22 @@ const AcademicSection = () => {
       setRemarks("");
     } catch (error) {
       console.error("Error saving examination marks:", error);
+      
+      // Get more specific error message
+      let errorMessage = "Failed to save examination marks";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null && 'message' in error) {
+        errorMessage = String(error.message);
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to save examination marks",
+        description: errorMessage,
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -243,8 +294,12 @@ const AcademicSection = () => {
                       />
                     </div>
 
-                    <Button onClick={handleSubmit} className="w-full">
-                      Save Marks
+                    <Button 
+                      onClick={handleSubmit} 
+                      className="w-full"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? "Saving..." : "Save Marks"}
                     </Button>
                   </>
                 )}
