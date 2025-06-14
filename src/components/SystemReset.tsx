@@ -12,7 +12,6 @@ import { supabase } from "@/integrations/supabase/client";
 const SystemReset = () => {
   const [confirmationText, setConfirmationText] = useState("");
   const [isResetting, setIsResetting] = useState(false);
-  const [resetStep, setResetStep] = useState("");
 
   const CONFIRMATION_PHRASE = "RESET SCHOOL SYSTEM";
 
@@ -29,53 +28,14 @@ const SystemReset = () => {
     try {
       setIsResetting(true);
       
-      // Step 1: Delete all examination marks
-      setResetStep("Deleting examination records...");
-      const { error: examError } = await supabase
-        .from('examination_marks')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all records
+      // Call the database function to reset the entire system
+      const { error } = await supabase.rpc('reset_school_system');
       
-      if (examError) throw examError;
+      if (error) {
+        console.error('Error calling reset_school_system:', error);
+        throw error;
+      }
 
-      // Step 2: Delete all fee payments
-      setResetStep("Deleting fee payment records...");
-      const { error: paymentError } = await supabase
-        .from('fee_payments')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-      
-      if (paymentError) throw paymentError;
-
-      // Step 3: Delete all student fee records
-      setResetStep("Deleting student fee records...");
-      const { error: feeRecordError } = await supabase
-        .from('student_fee_records')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-      
-      if (feeRecordError) throw feeRecordError;
-
-      // Step 4: Delete all fee configurations
-      setResetStep("Deleting fee configurations...");
-      const { error: feeConfigError } = await supabase
-        .from('fee_configuration')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-      
-      if (feeConfigError) throw feeConfigError;
-
-      // Step 5: Delete all students
-      setResetStep("Deleting student records...");
-      const { error: studentError } = await supabase
-        .from('students')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-      
-      if (studentError) throw studentError;
-
-      setResetStep("System reset completed!");
-      
       toast({
         title: "System Reset Successful",
         description: "All records have been cleared. The system is now ready for fresh setup.",
@@ -93,7 +53,6 @@ const SystemReset = () => {
       });
     } finally {
       setIsResetting(false);
-      setResetStep("");
     }
   };
 
@@ -114,9 +73,14 @@ const SystemReset = () => {
       count: "All fee data"
     },
     {
-      title: "System Configuration",
-      description: "Academic years, terms, and custom settings",
-      count: "All configurations"
+      title: "Book & Furniture Transactions",
+      description: "All distribution and return records for books and furniture",
+      count: "All transactions"
+    },
+    {
+      title: "Laboratory Records",
+      description: "All laboratory clearance and breakage records",
+      count: "All lab data"
     }
   ];
 
@@ -201,15 +165,6 @@ const SystemReset = () => {
                 className="font-mono"
               />
             </div>
-
-            {isResetting && resetStep && (
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-center space-x-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                  <span className="text-sm text-blue-700">{resetStep}</span>
-                </div>
-              </div>
-            )}
 
             <div className="flex space-x-4">
               <Button
