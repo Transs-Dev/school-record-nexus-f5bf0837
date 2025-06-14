@@ -1,14 +1,14 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BookOpen, DollarSign, Trophy, Calendar, GraduationCap, LogOut } from "lucide-react";
+import { BookOpen, DollarSign, Trophy, Calendar, GraduationCap, LogOut, Medal, Award } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { 
   fetchExaminationMarks,
+  calculateStudentPosition,
   type Student,
   type ExaminationMark 
 } from "@/utils/studentDatabase";
@@ -31,10 +31,14 @@ interface StudentFeeRecord {
   payment_percentage: number;
 }
 
+interface StudentResultWithPosition extends ExaminationMark {
+  position: number;
+}
+
 const StudentPortal = () => {
   const [authenticatedStudent, setAuthenticatedStudent] = useState<Student | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [examResults, setExamResults] = useState<ExaminationMark[]>([]);
+  const [examResults, setExamResults] = useState<StudentResultWithPosition[]>([]);
   const [feeRecords, setFeeRecords] = useState<StudentFeeRecord[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -81,12 +85,17 @@ const StudentPortal = () => {
       setLoading(true);
 
       // Load examination results for all terms
-      const allExamResults: ExaminationMark[] = [];
+      const allExamResults: StudentResultWithPosition[] = [];
       for (const term of terms) {
         const termResults = await fetchExaminationMarks(student.grade, term, currentYear);
         const studentResult = termResults.find(result => result.student_id === student.id);
         if (studentResult) {
-          allExamResults.push(studentResult);
+          // Calculate position for this student
+          const position = await calculateStudentPosition(student.id, student.grade, term, currentYear);
+          allExamResults.push({
+            ...studentResult,
+            position: position
+          });
         }
       }
       setExamResults(allExamResults);
@@ -158,6 +167,35 @@ const StudentPortal = () => {
     return "destructive";
   };
 
+  const getPositionIcon = (position: number) => {
+    if (position === 1) return <Trophy className="w-5 h-5 text-yellow-500" />;
+    if (position === 2) return <Medal className="w-5 h-5 text-gray-400" />;
+    if (position === 3) return <Award className="w-5 h-5 text-amber-600" />;
+    return null;
+  };
+
+  const getPositionBadgeVariant = (position: number) => {
+    if (position <= 3) return "default";
+    if (position <= 10) return "secondary";
+    return "outline";
+  };
+
+  const getGradeBadgeVariant = (percentage: number) => {
+    if (percentage >= 80) return "default"; // A
+    if (percentage >= 70) return "secondary"; // B
+    if (percentage >= 60) return "outline"; // C
+    if (percentage >= 50) return "outline"; // D
+    return "destructive"; // E
+  };
+
+  const getLetterGrade = (percentage: number) => {
+    if (percentage >= 80) return "A";
+    if (percentage >= 70) return "B";
+    if (percentage >= 60) return "C";
+    if (percentage >= 50) return "D";
+    return "E";
+  };
+
   // Show authentication form if no student is authenticated
   if (!authenticatedStudent) {
     return (
@@ -223,67 +261,107 @@ const StudentPortal = () => {
                   </div>
                 ) : examResults.length > 0 ? (
                   <div className="space-y-6">
-                    {examResults.map((result) => (
-                      <Card key={result.id}>
-                        <CardHeader>
-                          <CardTitle className="flex items-center justify-between">
-                            <span className="flex items-center space-x-2">
-                              <Calendar className="w-5 h-5" />
-                              <span>{result.term} - {result.academic_year}</span>
-                            </span>
-                            <div className="flex items-center space-x-2">
-                              <Trophy className="w-5 h-5 text-yellow-500" />
-                              <Badge variant="outline">
-                                Total: {result.total_marks || 0}/{subjects.reduce((sum, subject) => sum + subject.max_marks, 0)}
-                              </Badge>
-                            </div>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-4">
-                            <div>
-                              <h4 className="font-medium mb-3">Subject-wise Performance</h4>
-                              <div className="overflow-x-auto">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Subject</TableHead>
-                                      <TableHead className="text-center">Marks Obtained</TableHead>
-                                      <TableHead className="text-center">Max Marks</TableHead>
-                                      <TableHead className="text-center">Percentage</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {subjects.map((subject) => {
-                                      const marks = getSubjectMark(result, subject.key);
-                                      const percentage = ((marks / subject.max_marks) * 100).toFixed(1);
-                                      return (
-                                        <TableRow key={subject.key}>
-                                          <TableCell className="font-medium">{subject.label}</TableCell>
-                                          <TableCell className="text-center">
-                                            <Badge variant={getMarksBadgeVariant(marks, subject.max_marks)}>
-                                              {marks}
-                                            </Badge>
-                                          </TableCell>
-                                          <TableCell className="text-center">{subject.max_marks}</TableCell>
-                                          <TableCell className="text-center">{percentage}%</TableCell>
-                                        </TableRow>
-                                      );
-                                    })}
-                                  </TableBody>
-                                </Table>
+                    {examResults.map((result) => {
+                      const totalMaxMarks = subjects.reduce((sum, subject) => sum + subject.max_marks, 0);
+                      const percentage = totalMaxMarks > 0 ? ((result.total_marks || 0) / totalMaxMarks) * 100 : 0;
+                      const letterGrade = getLetterGrade(percentage);
+                      
+                      return (
+                        <Card key={result.id}>
+                          <CardHeader>
+                            <CardTitle className="flex items-center justify-between">
+                              <span className="flex items-center space-x-2">
+                                <Calendar className="w-5 h-5" />
+                                <span>{result.term} - {result.academic_year}</span>
+                              </span>
+                              <div className="flex items-center space-x-4">
+                                <div className="flex items-center space-x-2">
+                                  {getPositionIcon(result.position)}
+                                  <Badge variant={getPositionBadgeVariant(result.position)}>
+                                    Position: {result.position}
+                                  </Badge>
+                                </div>
+                                <Badge variant={getGradeBadgeVariant(percentage)} className="text-lg font-bold">
+                                  Grade: {letterGrade}
+                                </Badge>
+                                <Badge variant="outline">
+                                  Total: {result.total_marks || 0}/{totalMaxMarks}
+                                </Badge>
                               </div>
-                            </div>
-                            {result.remarks && (
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
                               <div>
-                                <h4 className="font-medium mb-2">Teacher's Remarks</h4>
-                                <p className="text-gray-700 bg-gray-50 p-3 rounded-md">{result.remarks}</p>
+                                <h4 className="font-medium mb-3">Subject-wise Performance</h4>
+                                <div className="overflow-x-auto">
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead>Subject</TableHead>
+                                        <TableHead className="text-center">Marks Obtained</TableHead>
+                                        <TableHead className="text-center">Max Marks</TableHead>
+                                        <TableHead className="text-center">Percentage</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {subjects.map((subject) => {
+                                        const marks = getSubjectMark(result, subject.key);
+                                        const percentage = ((marks / subject.max_marks) * 100).toFixed(1);
+                                        return (
+                                          <TableRow key={subject.key}>
+                                            <TableCell className="font-medium">{subject.label}</TableCell>
+                                            <TableCell className="text-center">
+                                              <Badge variant={getMarksBadgeVariant(marks, subject.max_marks)}>
+                                                {marks}
+                                              </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-center">{subject.max_marks}</TableCell>
+                                            <TableCell className="text-center">{percentage}%</TableCell>
+                                          </TableRow>
+                                        );
+                                      })}
+                                    </TableBody>
+                                  </Table>
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+
+                              {/* Performance Summary */}
+                              <div className="bg-gray-50 p-4 rounded-lg">
+                                <h4 className="font-medium mb-2">Performance Summary</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  <div className="text-center">
+                                    <p className="text-sm text-gray-600">Total Marks</p>
+                                    <p className="text-2xl font-bold">{result.total_marks || 0}/{totalMaxMarks}</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-sm text-gray-600">Percentage</p>
+                                    <p className="text-2xl font-bold">{percentage.toFixed(1)}%</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-sm text-gray-600">Class Position</p>
+                                    <div className="flex items-center justify-center space-x-2">
+                                      {getPositionIcon(result.position)}
+                                      <p className="text-2xl font-bold">#{result.position}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {result.remarks && (
+                                <div className="bg-blue-50 p-4 rounded-lg">
+                                  <h4 className="font-medium mb-2 flex items-center space-x-2">
+                                    <BookOpen className="w-4 h-4" />
+                                    <span>Teacher's Remarks</span>
+                                  </h4>
+                                  <p className="text-gray-700 italic">{result.remarks}</p>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 ) : (
                   <Card className="border-dashed">
