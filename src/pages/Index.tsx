@@ -12,6 +12,7 @@ import FeeManagement from "@/components/FeeManagement";
 import StudentPortal from "@/components/StudentPortal";
 import FurnitureManagement from "@/components/FurnitureManagement";
 import BookManagement from "@/components/BookManagement";
+import LaboratoryManagement from "@/components/LaboratoryManagement";
 import TourGuide from "@/components/TourGuide";
 
 const Index = () => {
@@ -27,6 +28,7 @@ const Index = () => {
     { value: "fees", label: "Fees" },
     { value: "books", label: "Books" },
     { value: "furniture", label: "Furniture" },
+    { value: "laboratory", label: "Laboratory" },
     { value: "portal", label: "Student Portal" },
   ];
 
@@ -128,6 +130,9 @@ const Index = () => {
             </TabsContent>
             <TabsContent value="furniture" className="mt-0">
               <FurnitureManagement />
+            </TabsContent>
+            <TabsContent value="laboratory" className="mt-0">
+              <LaboratoryManagement />
             </TabsContent>
             <TabsContent value="portal" className="mt-0">
               <StudentPortal />
