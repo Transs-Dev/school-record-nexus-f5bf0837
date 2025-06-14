@@ -10,6 +10,7 @@ import StudentRecords from "@/components/StudentRecords";
 import AcademicSection from "@/components/AcademicSection";
 import FeeManagement from "@/components/FeeManagement";
 import StudentPortal from "@/components/StudentPortal";
+import FurnitureManagement from "@/components/FurnitureManagement";
 import TourGuide from "@/components/TourGuide";
 
 const Index = () => {
@@ -23,6 +24,7 @@ const Index = () => {
     { value: "records", label: "Records" },
     { value: "academic", label: "Academic" },
     { value: "fees", label: "Fees" },
+    { value: "furniture", label: "Furniture" },
     { value: "portal", label: "Student Portal" },
   ];
 
@@ -118,6 +120,9 @@ const Index = () => {
             </TabsContent>
             <TabsContent value="fees" className="mt-0">
               <FeeManagement />
+            </TabsContent>
+            <TabsContent value="furniture" className="mt-0">
+              <FurnitureManagement />
             </TabsContent>
             <TabsContent value="portal" className="mt-0">
               <StudentPortal />

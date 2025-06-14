@@ -152,6 +152,53 @@ export type Database = {
           },
         ]
       }
+      furniture_transactions: {
+        Row: {
+          chair_quantity: number | null
+          created_at: string
+          id: string
+          locker_quantity: number | null
+          notes: string | null
+          student_id: string
+          tracking_number: string
+          transaction_date: string
+          transaction_type: string
+          updated_at: string
+        }
+        Insert: {
+          chair_quantity?: number | null
+          created_at?: string
+          id?: string
+          locker_quantity?: number | null
+          notes?: string | null
+          student_id: string
+          tracking_number: string
+          transaction_date?: string
+          transaction_type: string
+          updated_at?: string
+        }
+        Update: {
+          chair_quantity?: number | null
+          created_at?: string
+          id?: string
+          locker_quantity?: number | null
+          notes?: string | null
+          student_id?: string
+          tracking_number?: string
+          transaction_date?: string
+          transaction_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "furniture_transactions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pin_settings: {
         Row: {
           created_at: string
@@ -343,6 +390,10 @@ export type Database = {
           p_academic_year: string
         }
         Returns: number
+      }
+      generate_furniture_tracking_number: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       generate_registration_number: {
         Args: Record<PropertyKey, never>

@@ -1,0 +1,103 @@
+
+import { supabase } from "@/integrations/supabase/client";
+
+export interface FurnitureTransaction {
+  id: string;
+  tracking_number: string;
+  student_id: string;
+  transaction_type: 'distribution' | 'return';
+  chair_quantity: number;
+  locker_quantity: number;
+  transaction_date: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateFurnitureTransaction {
+  student_id: string;
+  transaction_type: 'distribution' | 'return';
+  chair_quantity?: number;
+  locker_quantity?: number;
+  notes?: string;
+}
+
+export const createFurnitureTransaction = async (transaction: CreateFurnitureTransaction): Promise<FurnitureTransaction> => {
+  const { data, error } = await supabase
+    .from('furniture_transactions')
+    .insert({
+      student_id: transaction.student_id,
+      transaction_type: transaction.transaction_type,
+      chair_quantity: transaction.chair_quantity || 0,
+      locker_quantity: transaction.locker_quantity || 0,
+      notes: transaction.notes
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating furniture transaction:', error);
+    throw new Error('Failed to create furniture transaction');
+  }
+
+  return data;
+};
+
+export const getFurnitureTransactions = async (): Promise<FurnitureTransaction[]> => {
+  const { data, error } = await supabase
+    .from('furniture_transactions')
+    .select(`
+      *,
+      students (
+        student_name,
+        registration_number,
+        grade
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching furniture transactions:', error);
+    throw new Error('Failed to fetch furniture transactions');
+  }
+
+  return data || [];
+};
+
+export const getFurnitureTransactionsByStudent = async (studentId: string): Promise<FurnitureTransaction[]> => {
+  const { data, error } = await supabase
+    .from('furniture_transactions')
+    .select('*')
+    .eq('student_id', studentId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching student furniture transactions:', error);
+    throw new Error('Failed to fetch student furniture transactions');
+  }
+
+  return data || [];
+};
+
+export const getStudentFurnitureBalance = async (studentId: string) => {
+  const transactions = await getFurnitureTransactionsByStudent(studentId);
+  
+  let chairBalance = 0;
+  let lockerBalance = 0;
+
+  transactions.forEach(transaction => {
+    if (transaction.transaction_type === 'distribution') {
+      chairBalance += transaction.chair_quantity;
+      lockerBalance += transaction.locker_quantity;
+    } else if (transaction.transaction_type === 'return') {
+      chairBalance -= transaction.chair_quantity;
+      lockerBalance -= transaction.locker_quantity;
+    }
+  });
+
+  return {
+    chairs: chairBalance,
+    lockers: lockerBalance,
+    transactions
+  };
+};
