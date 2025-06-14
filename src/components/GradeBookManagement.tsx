@@ -14,7 +14,7 @@ import { getBookStockByGrade, addBookStock, BookStock } from "@/utils/bookDataba
 const GradeBookManagement = () => {
   const [books, setBooks] = useState<BookStock[]>([]);
   const [filteredBooks, setFilteredBooks] = useState<BookStock[]>([]);
-  const [selectedGrade, setSelectedGrade] = useState<string>("");
+  const [selectedGrade, setSelectedGrade] = useState<string>("all");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -59,7 +59,7 @@ const GradeBookManagement = () => {
   };
 
   const filterBooksByGrade = () => {
-    if (!selectedGrade) {
+    if (selectedGrade === "all") {
       setFilteredBooks(books);
     } else {
       const filtered = books.filter(book => book.grade === selectedGrade);
@@ -202,7 +202,7 @@ const GradeBookManagement = () => {
                 <SelectValue placeholder="All grades" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All grades</SelectItem>
+                <SelectItem value="all">All grades</SelectItem>
                 {grades.map((grade) => (
                   <SelectItem key={grade} value={grade}>
                     {grade}
@@ -242,7 +242,7 @@ const GradeBookManagement = () => {
               {filteredBooks.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-gray-500">
-                    {selectedGrade ? `No books found for ${selectedGrade}` : "No books found"}
+                    {selectedGrade !== "all" ? `No books found for ${selectedGrade}` : "No books found"}
                   </TableCell>
                 </TableRow>
               )}
