@@ -1,8 +1,21 @@
-
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
+import { 
+  Menu, 
+  X, 
+  LayoutDashboard, 
+  UserPlus, 
+  FileText, 
+  GraduationCap, 
+  CreditCard, 
+  Book, 
+  Armchair, 
+  FlaskConical, 
+  User, 
+  BookOpen, 
+  Settings 
+} from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import Dashboard from "@/components/Dashboard";
 import StudentEnrollment from "@/components/StudentEnrollment";
@@ -23,17 +36,17 @@ const Index = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const tabs = [
-    { value: "dashboard", label: "Dashboard" },
-    { value: "enrollment", label: "Enrollment" },
-    { value: "records", label: "Records" },
-    { value: "academic", label: "Academic" },
-    { value: "fees", label: "Fees" },
-    { value: "books", label: "Books" },
-    { value: "furniture", label: "Furniture" },
-    { value: "laboratory", label: "Laboratory" },
-    { value: "portal", label: "Student Portal" },
-    { value: "subjects", label: "Subject Management" },
-    { value: "settings", label: "Settings" },
+    { value: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { value: "enrollment", label: "Enrollment", icon: UserPlus },
+    { value: "records", label: "Records", icon: FileText },
+    { value: "academic", label: "Academic", icon: GraduationCap },
+    { value: "fees", label: "Fees", icon: CreditCard },
+    { value: "books", label: "Books", icon: Book },
+    { value: "furniture", label: "Furniture", icon: Armchair },
+    { value: "laboratory", label: "Laboratory", icon: FlaskConical },
+    { value: "portal", label: "Student Portal", icon: User },
+    { value: "subjects", label: "Subject Management", icon: BookOpen },
+    { value: "settings", label: "Settings", icon: Settings },
   ];
 
   const handleTabChange = (value: string) => {
@@ -80,6 +93,7 @@ const Index = () => {
                       }`}
                       onClick={() => handleTabChange(tab.value)}
                     >
+                      <tab.icon className="h-4 w-4 mr-2" />
                       {tab.label}
                     </Button>
                   ))}
@@ -103,8 +117,9 @@ const Index = () => {
                       key={tab.value}
                       value={tab.value} 
                       onClick={() => setActiveTab(tab.value)}
-                      className="px-6 py-2 rounded-md font-medium transition-all duration-200 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600"
+                      className="px-4 py-2 rounded-md font-medium transition-all duration-200 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 flex items-center gap-2"
                     >
+                      <tab.icon className="h-4 w-4" />
                       {tab.label}
                     </TabsTrigger>
                   ))}
