@@ -6,6 +6,7 @@ export interface Subject {
   key: string;
   label: string;
   max_marks: number;
+  class_teacher?: string;
   created_at?: string;
   updated_at?: string;
 }
