@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { fetchStudentsByGrade, saveExaminationMarks, type Student, type SubjectMark } from "@/utils/studentDatabase";
 import { supabase } from "@/integrations/supabase/client";
 import ResultsSection from "./ResultsSection";
+import BulkMarksEntry from "./BulkMarksEntry";
 
 interface Subject {
   id: string;
@@ -79,7 +79,7 @@ const AcademicSection = () => {
       const studentsData = await fetchStudentsByGrade(selectedGrade);
       console.log("Students loaded:", studentsData);
       setStudents(studentsData);
-      setSelectedStudent(""); // Reset selected student when grade changes
+      setSelectedStudent("");
     } catch (error) {
       console.error("Error loading students:", error);
       toast({
@@ -108,14 +108,6 @@ const AcademicSection = () => {
 
   const handleSubmit = async () => {
     console.log("Starting examination marks submission...");
-    console.log("Form data:", {
-      selectedStudent,
-      selectedGrade,
-      selectedTerm,
-      academicYear,
-      subjectMarks,
-      remarks
-    });
 
     if (!selectedStudent || !selectedGrade || !selectedTerm || !academicYear) {
       toast({
@@ -126,7 +118,6 @@ const AcademicSection = () => {
       return;
     }
 
-    // Validate that at least one subject has marks
     const hasMarks = Object.values(subjectMarks).some(mark => mark > 0);
     if (!hasMarks) {
       toast({
@@ -142,13 +133,13 @@ const AcademicSection = () => {
     try {
       const totalMarks = calculateTotalMarks();
       const subjectMarksArray: SubjectMark[] = Object.entries(subjectMarks)
-        .filter(([_, marks]) => marks > 0) // Only include subjects with marks
+        .filter(([_, marks]) => marks > 0)
         .map(([subject_id, marks]) => ({
           subject_id,
           marks
         }));
 
-      console.log("Prepared data for submission:", {
+      await saveExaminationMarks({
         student_id: selectedStudent,
         grade: selectedGrade,
         term: selectedTerm,
@@ -157,31 +148,17 @@ const AcademicSection = () => {
         total_marks: totalMarks,
         remarks: remarks
       });
-
-      const result = await saveExaminationMarks({
-        student_id: selectedStudent,
-        grade: selectedGrade,
-        term: selectedTerm,
-        academic_year: academicYear,
-        subject_marks: subjectMarksArray,
-        total_marks: totalMarks,
-        remarks: remarks
-      });
-
-      console.log("Submission successful:", result);
 
       toast({
         title: "Success",
         description: "Examination marks saved successfully",
       });
 
-      // Clear form
       setSubjectMarks({});
       setRemarks("");
     } catch (error) {
       console.error("Error saving examination marks:", error);
       
-      // Get more specific error message
       let errorMessage = "Failed to save examination marks";
       if (error instanceof Error) {
         errorMessage = error.message;
@@ -223,14 +200,14 @@ const AcademicSection = () => {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="marks-entry" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="marks-entry">Marks Entry</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="marks-entry">Individual Marks Entry</TabsTrigger>
+              <TabsTrigger value="bulk-entry">Bulk Marks Entry</TabsTrigger>
               <TabsTrigger value="performance">Student Performance</TabsTrigger>
             </TabsList>
             
             <TabsContent value="marks-entry" className="space-y-6">
               <div className="space-y-6">
-                {/* Grade Selection First */}
                 <div>
                   <Label htmlFor="grade">Select Grade First</Label>
                   <Select onValueChange={setSelectedGrade} value={selectedGrade}>
@@ -245,7 +222,6 @@ const AcademicSection = () => {
                   </Select>
                 </div>
 
-                {/* Student and Term Selection - Only show if grade is selected */}
                 {selectedGrade && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -289,7 +265,6 @@ const AcademicSection = () => {
                   </div>
                 )}
 
-                {/* Subject Marks - Only show if student is selected */}
                 {selectedStudent && subjects.length > 0 && (
                   <>
                     <div>
@@ -314,7 +289,6 @@ const AcademicSection = () => {
                         ))}
                       </div>
                       
-                      {/* Total Marks Display */}
                       <div className="mt-4 p-3 bg-gray-50 rounded-md">
                         <Label className="text-sm font-medium">Total Marks: </Label>
                         <span className="text-lg font-bold text-blue-600">
@@ -323,7 +297,6 @@ const AcademicSection = () => {
                       </div>
                     </div>
 
-                    {/* Remarks */}
                     <div>
                       <Label htmlFor="remarks">Remarks</Label>
                       <Textarea
@@ -345,7 +318,6 @@ const AcademicSection = () => {
                   </>
                 )}
 
-                {/* No Subjects Warning */}
                 {selectedStudent && subjects.length === 0 && (
                   <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                     <h4 className="font-medium text-yellow-800 mb-2">No Subjects Available</h4>
@@ -355,6 +327,10 @@ const AcademicSection = () => {
                   </div>
                 )}
               </div>
+            </TabsContent>
+            
+            <TabsContent value="bulk-entry">
+              <BulkMarksEntry />
             </TabsContent>
             
             <TabsContent value="performance">
