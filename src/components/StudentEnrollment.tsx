@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { UserPlus, Save, Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { UserPlus, Save, Loader2, Users } from "lucide-react";
 import { insertStudent, type Student } from "@/utils/studentDatabase";
 import { toast } from "@/hooks/use-toast";
+import BulkEnrollment from "./BulkEnrollment";
 
 const StudentEnrollment = () => {
   const [loading, setLoading] = useState(false);
@@ -172,200 +173,219 @@ const StudentEnrollment = () => {
         <p className="text-gray-600">Register new students into the school system</p>
       </div>
 
-      <Card className="transform hover:shadow-lg transition-all duration-300">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <UserPlus className="w-5 h-5" />
-            <span>New Student Registration</span>
-          </CardTitle>
-          <CardDescription>
-            Please fill in all required fields marked with (*) to enroll a new student
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Personal Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Personal Information</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="student-name">
-                    Student Name <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="student-name"
-                    placeholder="Enter student's full name"
-                    value={formData.student_name}
-                    onChange={(e) => updateFormData('student_name', e.target.value)}
-                    className={errors.student_name ? "border-red-500" : ""}
-                  />
-                  {errors.student_name && (
-                    <p className="text-sm text-red-500">{errors.student_name}</p>
-                  )}
+      <Tabs defaultValue="single" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="single" className="flex items-center space-x-2">
+            <UserPlus className="w-4 h-4" />
+            <span>Single Enrollment</span>
+          </TabsTrigger>
+          <TabsTrigger value="bulk" className="flex items-center space-x-2">
+            <Users className="w-4 h-4" />
+            <span>Bulk Enrollment</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="single">
+          <Card className="transform hover:shadow-lg transition-all duration-300">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <UserPlus className="w-5 h-5" />
+                <span>New Student Registration</span>
+              </CardTitle>
+              <CardDescription>
+                Please fill in all required fields marked with (*) to enroll a new student
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Personal Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Personal Information</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="student-name">
+                        Student Name <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="student-name"
+                        placeholder="Enter student's full name"
+                        value={formData.student_name}
+                        onChange={(e) => updateFormData('student_name', e.target.value)}
+                        className={errors.student_name ? "border-red-500" : ""}
+                      />
+                      {errors.student_name && (
+                        <p className="text-sm text-red-500">{errors.student_name}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="grade">
+                        Grade <span className="text-red-500">*</span>
+                      </Label>
+                      <Select value={formData.grade} onValueChange={(value) => updateFormData('grade', value)}>
+                        <SelectTrigger id="grade" className={errors.grade ? "border-red-500" : ""}>
+                          <SelectValue placeholder="Select Grade" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {grades.map((grade) => (
+                            <SelectItem key={grade} value={grade}>
+                              {grade}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.grade && (
+                        <p className="text-sm text-red-500">{errors.grade}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="date-of-birth">
+                        Date of Birth <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="date-of-birth"
+                        type="date"
+                        value={formData.date_of_birth}
+                        onChange={(e) => updateFormData('date_of_birth', e.target.value)}
+                        className={errors.date_of_birth ? "border-red-500" : ""}
+                      />
+                      {errors.date_of_birth && (
+                        <p className="text-sm text-red-500">{errors.date_of_birth}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="gender">
+                        Gender <span className="text-red-500">*</span>
+                      </Label>
+                      <Select value={formData.gender} onValueChange={(value: 'Male' | 'Female') => updateFormData('gender', value)}>
+                        <SelectTrigger id="gender" className={errors.gender ? "border-red-500" : ""}>
+                          <SelectValue placeholder="Select Gender" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Male">Male</SelectItem>
+                          <SelectItem value="Female">Female</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {errors.gender && (
+                        <p className="text-sm text-red-500">{errors.gender}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="admission-date">
+                        Admission Date <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="admission-date"
+                        type="date"
+                        value={formData.admission_date}
+                        onChange={(e) => updateFormData('admission_date', e.target.value)}
+                        className={errors.admission_date ? "border-red-500" : ""}
+                      />
+                      {errors.admission_date && (
+                        <p className="text-sm text-red-500">{errors.admission_date}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="grade">
-                    Grade <span className="text-red-500">*</span>
-                  </Label>
-                  <Select value={formData.grade} onValueChange={(value) => updateFormData('grade', value)}>
-                    <SelectTrigger id="grade" className={errors.grade ? "border-red-500" : ""}>
-                      <SelectValue placeholder="Select Grade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {grades.map((grade) => (
-                        <SelectItem key={grade} value={grade}>
-                          {grade}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.grade && (
-                    <p className="text-sm text-red-500">{errors.grade}</p>
-                  )}
+                {/* Parent/Guardian Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Parent/Guardian Information</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="parent-name">
+                        Parent/Guardian Name <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="parent-name"
+                        placeholder="Enter parent/guardian full name"
+                        value={formData.parent_name}
+                        onChange={(e) => updateFormData('parent_name', e.target.value)}
+                        className={errors.parent_name ? "border-red-500" : ""}
+                      />
+                      {errors.parent_name && (
+                        <p className="text-sm text-red-500">{errors.parent_name}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="primary-contact">
+                        Primary Contact <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="primary-contact"
+                        placeholder="Enter primary phone number"
+                        value={formData.primary_contact}
+                        onChange={(e) => updateFormData('primary_contact', e.target.value)}
+                        className={errors.primary_contact ? "border-red-500" : ""}
+                      />
+                      {errors.primary_contact && (
+                        <p className="text-sm text-red-500">{errors.primary_contact}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="alternative-contact">Alternative Contact</Label>
+                      <Input
+                        id="alternative-contact"
+                        placeholder="Enter alternative phone number (optional)"
+                        value={formData.alternative_contact}
+                        onChange={(e) => updateFormData('alternative_contact', e.target.value)}
+                        className={errors.alternative_contact ? "border-red-500" : ""}
+                      />
+                      {errors.alternative_contact && (
+                        <p className="text-sm text-red-500">{errors.alternative_contact}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Home Address</Label>
+                    <Textarea
+                      id="address"
+                      placeholder="Enter complete home address (optional)"
+                      value={formData.address}
+                      onChange={(e) => updateFormData('address', e.target.value)}
+                      className="min-h-[100px]"
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="date-of-birth">
-                    Date of Birth <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="date-of-birth"
-                    type="date"
-                    value={formData.date_of_birth}
-                    onChange={(e) => updateFormData('date_of_birth', e.target.value)}
-                    className={errors.date_of_birth ? "border-red-500" : ""}
-                  />
-                  {errors.date_of_birth && (
-                    <p className="text-sm text-red-500">{errors.date_of_birth}</p>
-                  )}
+                {/* Submit Button */}
+                <div className="flex justify-end pt-6 border-t">
+                  <Button 
+                    type="submit" 
+                    size="lg" 
+                    disabled={loading}
+                    className="min-w-[150px]"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Enrolling...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Enroll Student
+                      </>
+                    )}
+                  </Button>
                 </div>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                <div className="space-y-2">
-                  <Label htmlFor="gender">
-                    Gender <span className="text-red-500">*</span>
-                  </Label>
-                  <Select value={formData.gender} onValueChange={(value: 'Male' | 'Female') => updateFormData('gender', value)}>
-                    <SelectTrigger id="gender" className={errors.gender ? "border-red-500" : ""}>
-                      <SelectValue placeholder="Select Gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Male">Male</SelectItem>
-                      <SelectItem value="Female">Female</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.gender && (
-                    <p className="text-sm text-red-500">{errors.gender}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="admission-date">
-                    Admission Date <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="admission-date"
-                    type="date"
-                    value={formData.admission_date}
-                    onChange={(e) => updateFormData('admission_date', e.target.value)}
-                    className={errors.admission_date ? "border-red-500" : ""}
-                  />
-                  {errors.admission_date && (
-                    <p className="text-sm text-red-500">{errors.admission_date}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Parent/Guardian Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Parent/Guardian Information</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="parent-name">
-                    Parent/Guardian Name <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="parent-name"
-                    placeholder="Enter parent/guardian full name"
-                    value={formData.parent_name}
-                    onChange={(e) => updateFormData('parent_name', e.target.value)}
-                    className={errors.parent_name ? "border-red-500" : ""}
-                  />
-                  {errors.parent_name && (
-                    <p className="text-sm text-red-500">{errors.parent_name}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="primary-contact">
-                    Primary Contact <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="primary-contact"
-                    placeholder="Enter primary phone number"
-                    value={formData.primary_contact}
-                    onChange={(e) => updateFormData('primary_contact', e.target.value)}
-                    className={errors.primary_contact ? "border-red-500" : ""}
-                  />
-                  {errors.primary_contact && (
-                    <p className="text-sm text-red-500">{errors.primary_contact}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="alternative-contact">Alternative Contact</Label>
-                  <Input
-                    id="alternative-contact"
-                    placeholder="Enter alternative phone number (optional)"
-                    value={formData.alternative_contact}
-                    onChange={(e) => updateFormData('alternative_contact', e.target.value)}
-                    className={errors.alternative_contact ? "border-red-500" : ""}
-                  />
-                  {errors.alternative_contact && (
-                    <p className="text-sm text-red-500">{errors.alternative_contact}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="address">Home Address</Label>
-                <Textarea
-                  id="address"
-                  placeholder="Enter complete home address (optional)"
-                  value={formData.address}
-                  onChange={(e) => updateFormData('address', e.target.value)}
-                  className="min-h-[100px]"
-                />
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <div className="flex justify-end pt-6 border-t">
-              <Button 
-                type="submit" 
-                size="lg" 
-                disabled={loading}
-                className="min-w-[150px]"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Enrolling...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Enroll Student
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+        <TabsContent value="bulk">
+          <BulkEnrollment />
+        </TabsContent>
+      </Tabs>
 
       {/* Information Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
