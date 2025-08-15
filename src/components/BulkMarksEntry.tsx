@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,7 @@ import { Upload, Download, FileSpreadsheet, AlertCircle } from "lucide-react";
 import { fetchAllStudents, Student } from "@/utils/studentDatabase";
 import { fetchSubjects, Subject } from "@/utils/subjectDatabase";
 import { supabase } from "@/integrations/supabase/client";
+import { calculateOverallGrade } from "@/utils/gradingSystem";
 
 const BulkMarksEntry = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -78,11 +78,10 @@ const BulkMarksEntry = () => {
       return;
     }
 
-    // Create headers: Student info + all subjects
+    // Create headers: Student info (without grade) + all subjects
     const headers = [
       'Student Name*',
       'Registration Number*',
-      'Grade*',
       ...subjects.map(subject => subject.label)
     ];
 
@@ -93,7 +92,6 @@ const BulkMarksEntry = () => {
       const row = [
         student.student_name,
         student.registration_number,
-        student.grade,
         ...subjects.map(() => '') // Empty marks to be filled
       ];
       csvContent += row.join(',') + '\n';
@@ -140,14 +138,14 @@ const BulkMarksEntry = () => {
       }
 
       const headers = lines[0].split(',').map(h => h.trim());
-      const requiredHeaders = ['Student Name*', 'Registration Number*', 'Grade*'];
+      const requiredHeaders = ['Student Name*', 'Registration Number*'];
       
       if (!requiredHeaders.every(header => headers.includes(header))) {
         throw new Error("CSV headers don't match the template. Please use the downloaded template.");
       }
 
       // Get subject headers (everything after the required headers)
-      const subjectHeaders = headers.slice(3);
+      const subjectHeaders = headers.slice(2);
       const subjectMap = new Map();
       
       subjectHeaders.forEach(header => {
@@ -171,13 +169,11 @@ const BulkMarksEntry = () => {
 
         const studentName = values[headers.indexOf('Student Name*')];
         const registrationNumber = values[headers.indexOf('Registration Number*')];
-        const grade = values[headers.indexOf('Grade*')];
 
         // Find student
         const student = gradeStudents.find(s => 
           s.registration_number === registrationNumber && 
-          s.student_name === studentName &&
-          s.grade === grade
+          s.student_name === studentName
         );
 
         if (!student) {
@@ -192,7 +188,7 @@ const BulkMarksEntry = () => {
         subjectHeaders.forEach((header, index) => {
           const subject = subjectMap.get(header);
           if (subject) {
-            const markValue = values[3 + index];
+            const markValue = values[2 + index];
             
             if (!markValue || markValue.trim() === '') {
               hasIncompleteMarks = true;
@@ -219,15 +215,22 @@ const BulkMarksEntry = () => {
           continue; // Skip this student if any marks are missing
         }
 
+        const totalMarks = subjectMarks.reduce((sum, mark) => sum + mark.marks, 0);
+        const totalMaxMarks = subjectMarks.reduce((sum, mark) => sum + mark.max_marks, 0);
+        const overallGrade = calculateOverallGrade(totalMarks, totalMaxMarks);
+
         marksData.push({
           student_id: student.id,
           student_name: studentName,
           registration_number: registrationNumber,
-          grade: grade,
+          grade: selectedGrade,
           term: selectedTerm,
           academic_year: selectedAcademicYear,
           subject_marks: subjectMarks,
-          total_marks: subjectMarks.reduce((sum, mark) => sum + mark.marks, 0)
+          total_marks: totalMarks,
+          overall_grade: overallGrade.grade,
+          overall_points: overallGrade.points,
+          remarks: overallGrade.remarks
         });
       }
 
@@ -239,6 +242,8 @@ const BulkMarksEntry = () => {
         throw new Error("No valid student marks found to upload");
       }
 
+      console.log('Uploading marks data:', marksData);
+
       // Upload marks in batches
       const batchSize = 10;
       let uploadedCount = 0;
@@ -248,37 +253,54 @@ const BulkMarksEntry = () => {
         
         const promises = batch.map(async (studentMarks) => {
           // Check if record already exists
-          const { data: existing } = await supabase
+          const { data: existing, error: checkError } = await supabase
             .from('examination_marks')
             .select('id')
             .eq('student_id', studentMarks.student_id)
             .eq('grade', studentMarks.grade)
             .eq('term', studentMarks.term)
             .eq('academic_year', studentMarks.academic_year)
-            .single();
+            .maybeSingle();
+
+          if (checkError) {
+            console.error('Error checking existing record:', checkError);
+            throw checkError;
+          }
+
+          const dataToSave = {
+            student_id: studentMarks.student_id,
+            grade: studentMarks.grade,
+            term: studentMarks.term,
+            academic_year: studentMarks.academic_year,
+            subject_marks: studentMarks.subject_marks,
+            total_marks: studentMarks.total_marks,
+            remarks: `${studentMarks.overall_grade} - ${studentMarks.remarks}`,
+            updated_at: new Date().toISOString()
+          };
 
           if (existing) {
             // Update existing record
-            return supabase
+            console.log('Updating existing record:', existing.id, dataToSave);
+            const { error: updateError } = await supabase
               .from('examination_marks')
-              .update({
-                subject_marks: studentMarks.subject_marks,
-                total_marks: studentMarks.total_marks,
-                updated_at: new Date().toISOString()
-              })
+              .update(dataToSave)
               .eq('id', existing.id);
+
+            if (updateError) {
+              console.error('Error updating record:', updateError);
+              throw updateError;
+            }
           } else {
             // Insert new record
-            return supabase
+            console.log('Inserting new record:', dataToSave);
+            const { error: insertError } = await supabase
               .from('examination_marks')
-              .insert({
-                student_id: studentMarks.student_id,
-                grade: studentMarks.grade,
-                term: studentMarks.term,
-                academic_year: studentMarks.academic_year,
-                subject_marks: studentMarks.subject_marks,
-                total_marks: studentMarks.total_marks
-              });
+              .insert(dataToSave);
+
+            if (insertError) {
+              console.error('Error inserting record:', insertError);
+              throw insertError;
+            }
           }
         });
 
@@ -287,15 +309,17 @@ const BulkMarksEntry = () => {
         setUploadProgress(Math.round((uploadedCount / marksData.length) * 100));
         
         // Show progress
-        toast({
-          title: "Progress",
-          description: `Uploaded marks for ${uploadedCount} of ${marksData.length} students`,
-        });
+        if (uploadedCount < marksData.length) {
+          toast({
+            title: "Progress",
+            description: `Uploaded marks for ${uploadedCount} of ${marksData.length} students`,
+          });
+        }
       }
 
       toast({
         title: "Success",
-        description: `Successfully uploaded marks for ${marksData.length} students`,
+        description: `Successfully uploaded marks for ${marksData.length} students with professional grading`,
       });
 
       // Reset form
@@ -333,10 +357,28 @@ const BulkMarksEntry = () => {
           <h4 className="font-medium text-blue-800 mb-2">Instructions:</h4>
           <ol className="text-sm text-blue-700 space-y-1">
             <li>1. Select grade, term, and academic year</li>
-            <li>2. Download the CSV template with all students</li>
+            <li>2. Download the CSV template with all students (grade column removed)</li>
             <li>3. Fill in ALL subject marks for ALL students (incomplete uploads will be rejected)</li>
-            <li>4. Upload the completed CSV file</li>
+            <li>4. Upload the completed CSV file with professional grading applied</li>
           </ol>
+        </div>
+
+        <div className="bg-green-50 p-4 rounded-lg">
+          <h4 className="font-medium text-green-800 mb-2">Professional Grading Scale:</h4>
+          <div className="text-sm text-green-700 grid grid-cols-2 gap-2">
+            <div>A (80-100): Excellent</div>
+            <div>A– (75-79): Very Good</div>
+            <div>B+ (70-74): Good</div>
+            <div>B (65-69): Above Average</div>
+            <div>B– (60-64): Average</div>
+            <div>C+ (55-59): Fairly Good</div>
+            <div>C (50-54): Fair</div>
+            <div>C– (45-49): Fair but Weak</div>
+            <div>D+ (40-44): Poor</div>
+            <div>D (35-39): Very Poor</div>
+            <div>D– (30-34): Weak</div>
+            <div>E (0-29): Fail</div>
+          </div>
         </div>
 
         <div className="bg-orange-50 p-4 rounded-lg">
