@@ -1,41 +1,54 @@
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Upload, FileSpreadsheet } from "lucide-react";
-import { fetchStudentsByGrade, saveExaminationMarks, type Student } from "@/utils/studentDatabase";
-import { fetchSubjects, type Subject } from "@/utils/subjectDatabase";
+import { Upload, Download, FileSpreadsheet, AlertCircle } from "lucide-react";
+import { fetchAllStudents, Student } from "@/utils/studentDatabase";
+import { fetchSubjects, Subject } from "@/utils/subjectDatabase";
 import { supabase } from "@/integrations/supabase/client";
 
 const BulkMarksEntry = () => {
-  const [selectedGrade, setSelectedGrade] = useState("");
-  const [selectedTerm, setSelectedTerm] = useState("");
-  const [academicYear, setAcademicYear] = useState(new Date().getFullYear().toString());
+  const [students, setStudents] = useState<Student[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+  const [selectedGrade, setSelectedGrade] = useState<string>("");
+  const [selectedTerm, setSelectedTerm] = useState<string>("");
+  const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>(new Date().getFullYear().toString());
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const { toast } = useToast();
 
+  const grades = ["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8"];
   const terms = ["Term 1", "Term 2", "Term 3"];
-  const grades = [
-    "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5",
-    "Grade 6", "Grade 7", "Grade 8", "Grade 9"
-  ];
 
   useEffect(() => {
+    loadStudents();
     loadSubjects();
   }, []);
+
+  const loadStudents = async () => {
+    try {
+      const studentsData = await fetchAllStudents();
+      setStudents(studentsData);
+    } catch (error) {
+      console.error('Error loading students:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load students",
+        variant: "destructive",
+      });
+    }
+  };
 
   const loadSubjects = async () => {
     try {
       const subjectsData = await fetchSubjects();
       setSubjects(subjectsData);
     } catch (error) {
-      console.error("Error fetching subjects:", error);
+      console.error('Error loading subjects:', error);
       toast({
         title: "Error",
         description: "Failed to load subjects",
@@ -44,7 +57,7 @@ const BulkMarksEntry = () => {
     }
   };
 
-  const generateCSVTemplate = async () => {
+  const downloadCSVTemplate = () => {
     if (!selectedGrade || !selectedTerm) {
       toast({
         title: "Error",
@@ -54,125 +67,52 @@ const BulkMarksEntry = () => {
       return;
     }
 
-    try {
-      const students = await fetchStudentsByGrade(selectedGrade);
-      
-      if (students.length === 0) {
-        toast({
-          title: "No Students",
-          description: `No students found for ${selectedGrade}`,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Create headers with student info and all subjects
-      const headers = [
-        "Registration Number",
-        "Student Name",
-        ...subjects.map(subject => `${subject.label} (Max: ${subject.max_marks})`)
-      ];
-
-      // Create CSV content
-      const csvRows = [headers.join(",")];
-      
-      // Add student rows with default marks as 0
-      students.forEach(student => {
-        const row = [
-          student.registration_number,
-          `"${student.student_name}"`,
-          ...subjects.map(() => "0") // Default marks as 0
-        ];
-        csvRows.push(row.join(","));
-      });
-
-      const csvContent = csvRows.join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      
-      if (link.download !== undefined) {
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", `marks_template_${selectedGrade.replace(" ", "_")}_${selectedTerm.replace(" ", "_")}_${academicYear}.csv`);
-        link.style.visibility = "hidden";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        toast({
-          title: "Template Downloaded",
-          description: `CSV template for ${selectedGrade} - ${selectedTerm} downloaded successfully with ${subjects.length} subjects.`,
-        });
-      }
-    } catch (error) {
-      console.error("Error generating template:", error);
+    const gradeStudents = students.filter(student => student.grade === selectedGrade);
+    
+    if (gradeStudents.length === 0) {
       toast({
-        title: "Error",
-        description: "Failed to generate CSV template",
+        title: "Error", 
+        description: `No students found for ${selectedGrade}`,
         variant: "destructive",
       });
-    }
-  };
-
-  const processBatchMarks = async (batchData: any[], batchIndex: number) => {
-    const batchResults = {
-      success: 0,
-      errors: [] as string[]
-    };
-
-    for (const item of batchData) {
-      try {
-        // Find student by registration number using direct supabase query for better performance
-        const { data: student, error: studentError } = await supabase
-          .from('students')
-          .select('id, student_name')
-          .eq('registration_number', item.registrationNumber)
-          .eq('grade', selectedGrade)
-          .single();
-
-        if (studentError || !student) {
-          batchResults.errors.push(`Student not found: ${item.registrationNumber}`);
-          continue;
-        }
-
-        // Prepare subject marks - only include subjects with marks > 0
-        const subjectMarks = item.subjectMarks.filter((mark: any) => mark.marks > 0);
-        const totalMarks = subjectMarks.reduce((sum: number, mark: any) => sum + mark.marks, 0);
-
-        // Use upsert for better performance and handle existing records
-        const { error: saveError } = await supabase
-          .from('examination_marks')
-          .upsert({
-            student_id: student.id,
-            grade: selectedGrade,
-            term: selectedTerm,
-            academic_year: academicYear,
-            subject_marks: subjectMarks,
-            total_marks: totalMarks,
-            remarks: `Bulk uploaded for ${selectedTerm}`,
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'student_id,grade,term,academic_year'
-          });
-
-        if (saveError) {
-          console.error(`Error saving marks for ${item.registrationNumber}:`, saveError);
-          batchResults.errors.push(`Failed to save ${item.registrationNumber}: ${saveError.message}`);
-        } else {
-          batchResults.success++;
-        }
-
-        // Update progress
-        setUploadProgress(prev => ({ ...prev, current: prev.current + 1 }));
-
-      } catch (error) {
-        console.error(`Error processing ${item.registrationNumber}:`, error);
-        batchResults.errors.push(`Error processing ${item.registrationNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
+      return;
     }
 
-    return batchResults;
+    // Create headers: Student info + all subjects
+    const headers = [
+      'Student Name*',
+      'Registration Number*',
+      'Grade*',
+      ...subjects.map(subject => subject.label)
+    ];
+
+    let csvContent = headers.join(',') + '\n';
+
+    // Add student rows with empty subject marks
+    gradeStudents.forEach(student => {
+      const row = [
+        student.student_name,
+        student.registration_number,
+        student.grade,
+        ...subjects.map(() => '') // Empty marks to be filled
+      ];
+      csvContent += row.join(',') + '\n';
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${selectedGrade.replace(' ', '_')}_${selectedTerm.replace(' ', '_')}_marks_template.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Success",
+      description: `CSV template downloaded for ${selectedGrade} - ${selectedTerm}`,
+    });
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -188,224 +128,319 @@ const BulkMarksEntry = () => {
       return;
     }
 
-    setIsUploading(true);
-    setUploadProgress({ current: 0, total: 0 });
+    setUploading(true);
+    setUploadProgress(0);
 
     try {
       const text = await file.text();
-      const lines = text.split("\n").filter(line => line.trim());
+      const lines = text.split('\n').filter(line => line.trim());
       
       if (lines.length < 2) {
-        throw new Error("CSV file appears to be empty or invalid");
+        throw new Error("CSV file must contain at least one student row");
       }
 
-      // Parse header to get subject order
-      const headers = lines[0].split(",").map(h => h.trim().replace(/"/g, ""));
-      const dataLines = lines.slice(1);
+      const headers = lines[0].split(',').map(h => h.trim());
+      const requiredHeaders = ['Student Name*', 'Registration Number*', 'Grade*'];
       
-      // Parse all data first
-      const parsedData = [];
-      for (const line of dataLines) {
-        if (!line.trim()) continue;
-
-        const values = line.split(",").map(v => v.trim().replace(/"/g, ""));
-        
-        if (values.length < 2) continue;
-
-        const registrationNumber = values[0];
-        const studentName = values[1];
-        const marksData = values.slice(2);
-
-        // Prepare subject marks with subject IDs
-        const subjectMarks = subjects.map((subject, index) => ({
-          subject_id: subject.key,
-          marks: parseInt(marksData[index]) || 0
-        }));
-
-        parsedData.push({
-          registrationNumber,
-          studentName,
-          subjectMarks
-        });
+      if (!requiredHeaders.every(header => headers.includes(header))) {
+        throw new Error("CSV headers don't match the template. Please use the downloaded template.");
       }
 
-      if (parsedData.length === 0) {
-        throw new Error("No valid data found in CSV file");
-      }
-
-      setUploadProgress({ current: 0, total: parsedData.length });
-
-      // Process in smaller batches for better performance (batch size of 10)
-      const batchSize = 10;
-      let totalSuccess = 0;
-      const allErrors: string[] = [];
-
-      for (let i = 0; i < parsedData.length; i += batchSize) {
-        const batch = parsedData.slice(i, i + batchSize);
-        const batchIndex = Math.floor(i / batchSize);
-        
-        console.log(`Processing batch ${batchIndex + 1} of ${Math.ceil(parsedData.length / batchSize)}`);
-        
-        const batchResult = await processBatchMarks(batch, batchIndex);
-        totalSuccess += batchResult.success;
-        allErrors.push(...batchResult.errors);
-
-        // Small delay between batches to prevent overwhelming the database
-        if (i + batchSize < parsedData.length) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+      // Get subject headers (everything after the required headers)
+      const subjectHeaders = headers.slice(3);
+      const subjectMap = new Map();
+      
+      subjectHeaders.forEach(header => {
+        const subject = subjects.find(s => s.label === header);
+        if (subject) {
+          subjectMap.set(header, subject);
         }
-      }
-
-      const totalErrors = allErrors.length;
-      
-      toast({
-        title: "Upload Complete",
-        description: `Successfully processed ${totalSuccess} students. ${totalErrors} errors occurred.`,
-        variant: totalErrors > 0 ? "destructive" : "default",
       });
 
-      if (allErrors.length > 0 && allErrors.length <= 10) {
-        console.log("Upload errors:", allErrors);
-        // Show first few errors to user
-        toast({
-          title: "Some Errors Occurred",
-          description: allErrors.slice(0, 3).join("; "),
-          variant: "destructive",
+      const marksData = [];
+      const errors = [];
+      const gradeStudents = students.filter(s => s.grade === selectedGrade);
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim());
+        
+        if (values.length !== headers.length) {
+          errors.push(`Row ${i + 1}: Incorrect number of columns`);
+          continue;
+        }
+
+        const studentName = values[headers.indexOf('Student Name*')];
+        const registrationNumber = values[headers.indexOf('Registration Number*')];
+        const grade = values[headers.indexOf('Grade*')];
+
+        // Find student
+        const student = gradeStudents.find(s => 
+          s.registration_number === registrationNumber && 
+          s.student_name === studentName &&
+          s.grade === grade
+        );
+
+        if (!student) {
+          errors.push(`Row ${i + 1}: Student not found: ${studentName} (${registrationNumber})`);
+          continue;
+        }
+
+        // Validate all subject marks are provided
+        const subjectMarks = [];
+        let hasIncompleteMarks = false;
+
+        subjectHeaders.forEach((header, index) => {
+          const subject = subjectMap.get(header);
+          if (subject) {
+            const markValue = values[3 + index];
+            
+            if (!markValue || markValue.trim() === '') {
+              hasIncompleteMarks = true;
+              errors.push(`Row ${i + 1}: Missing marks for ${header}`);
+              return;
+            }
+
+            const marks = parseInt(markValue);
+            if (isNaN(marks) || marks < 0 || marks > subject.max_marks) {
+              errors.push(`Row ${i + 1}: Invalid marks for ${header}. Must be between 0 and ${subject.max_marks}`);
+              return;
+            }
+
+            subjectMarks.push({
+              subject_id: subject.id,
+              subject_name: subject.label,
+              marks: marks,
+              max_marks: subject.max_marks
+            });
+          }
+        });
+
+        if (hasIncompleteMarks) {
+          continue; // Skip this student if any marks are missing
+        }
+
+        marksData.push({
+          student_id: student.id,
+          student_name: studentName,
+          registration_number: registrationNumber,
+          grade: grade,
+          term: selectedTerm,
+          academic_year: selectedAcademicYear,
+          subject_marks: subjectMarks,
+          total_marks: subjectMarks.reduce((sum, mark) => sum + mark.marks, 0)
         });
       }
 
-      // Clear the file input
+      if (errors.length > 0) {
+        throw new Error(`Upload failed with errors:\n${errors.slice(0, 10).join('\n')}${errors.length > 10 ? `\n... and ${errors.length - 10} more errors` : ''}`);
+      }
+
+      if (marksData.length === 0) {
+        throw new Error("No valid student marks found to upload");
+      }
+
+      // Upload marks in batches
+      const batchSize = 10;
+      let uploadedCount = 0;
+
+      for (let i = 0; i < marksData.length; i += batchSize) {
+        const batch = marksData.slice(i, i + batchSize);
+        
+        const promises = batch.map(async (studentMarks) => {
+          // Check if record already exists
+          const { data: existing } = await supabase
+            .from('examination_marks')
+            .select('id')
+            .eq('student_id', studentMarks.student_id)
+            .eq('grade', studentMarks.grade)
+            .eq('term', studentMarks.term)
+            .eq('academic_year', studentMarks.academic_year)
+            .single();
+
+          if (existing) {
+            // Update existing record
+            return supabase
+              .from('examination_marks')
+              .update({
+                subject_marks: studentMarks.subject_marks,
+                total_marks: studentMarks.total_marks,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', existing.id);
+          } else {
+            // Insert new record
+            return supabase
+              .from('examination_marks')
+              .insert({
+                student_id: studentMarks.student_id,
+                grade: studentMarks.grade,
+                term: studentMarks.term,
+                academic_year: studentMarks.academic_year,
+                subject_marks: studentMarks.subject_marks,
+                total_marks: studentMarks.total_marks
+              });
+          }
+        });
+
+        await Promise.all(promises);
+        uploadedCount += batch.length;
+        setUploadProgress(Math.round((uploadedCount / marksData.length) * 100));
+        
+        // Show progress
+        toast({
+          title: "Progress",
+          description: `Uploaded marks for ${uploadedCount} of ${marksData.length} students`,
+        });
+      }
+
+      toast({
+        title: "Success",
+        description: `Successfully uploaded marks for ${marksData.length} students`,
+      });
+
+      // Reset form
       event.target.value = "";
+      setUploadProgress(0);
 
     } catch (error) {
-      console.error("File processing error:", error);
+      console.error('Error uploading marks:', error);
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to process the uploaded file",
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "Failed to upload marks",
         variant: "destructive",
       });
     } finally {
-      setIsUploading(false);
-      setUploadProgress({ current: 0, total: 0 });
+      setUploading(false);
+      setUploadProgress(0);
     }
   };
 
+  const getGradeStudentCount = () => {
+    if (!selectedGrade) return 0;
+    return students.filter(student => student.grade === selectedGrade).length;
+  };
+
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <FileSpreadsheet className="h-5 w-5" />
-            <span>Bulk Marks Entry</span>
-          </CardTitle>
-          <CardDescription>
-            Upload student marks in bulk using CSV files. Select grade, term and academic year first, then download the template with current subjects.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Grade *</Label>
-              <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select grade" />
-                </SelectTrigger>
-                <SelectContent>
-                  {grades.map(grade => (
-                    <SelectItem key={grade} value={grade}>{grade}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Term *</Label>
-              <Select value={selectedTerm} onValueChange={setSelectedTerm}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select term" />
-                </SelectTrigger>
-                <SelectContent>
-                  {terms.map(term => (
-                    <SelectItem key={term} value={term}>{term}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Academic Year</Label>
-              <Input
-                type="number"
-                value={academicYear}
-                onChange={(e) => setAcademicYear(e.target.value)}
-              />
-            </div>
-          </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center space-x-2">
+          <FileSpreadsheet className="h-5 w-5" />
+          <span>Bulk Marks Entry</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <h4 className="font-medium text-blue-800 mb-2">Instructions:</h4>
+          <ol className="text-sm text-blue-700 space-y-1">
+            <li>1. Select grade, term, and academic year</li>
+            <li>2. Download the CSV template with all students</li>
+            <li>3. Fill in ALL subject marks for ALL students (incomplete uploads will be rejected)</li>
+            <li>4. Upload the completed CSV file</li>
+          </ol>
+        </div>
 
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Button
-              onClick={generateCSVTemplate}
-              disabled={!selectedGrade || !selectedTerm || subjects.length === 0}
-              variant="outline"
-              className="flex items-center space-x-2"
-            >
-              <Download className="h-4 w-4" />
-              <span>Download Template ({subjects.length} subjects)</span>
-            </Button>
-
-            <div className="flex items-center space-x-2 flex-1">
-              <Input
-                type="file"
-                accept=".csv"
-                onChange={handleFileUpload}
-                disabled={isUploading || !selectedGrade || !selectedTerm}
-                className="file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
-              />
-              {isUploading && (
-                <div className="flex items-center space-x-2 min-w-0 flex-shrink-0">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                  <span className="text-sm text-gray-600 whitespace-nowrap">
-                    {uploadProgress.total > 0 ? `${uploadProgress.current}/${uploadProgress.total}` : 'Processing...'}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-medium text-blue-800 mb-2">Instructions:</h4>
-            <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Select grade, term and academic year first</li>
-              <li>• Download the CSV template which contains all current subjects and students from the selected grade</li>
-              <li>• Fill in the marks for each subject (leave as 0 if not applicable)</li>
-              <li>• Upload the completed file to bulk update student records</li>
-              <li>• Processing is done in batches for better performance</li>
-              <li>• All uploaded marks will be reflected in student portals immediately</li>
-            </ul>
-          </div>
-
-          {subjects.length > 0 && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h4 className="font-medium text-green-800 mb-2">Available Subjects ({subjects.length}):</h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {subjects.map(subject => (
-                  <div key={subject.id} className="text-sm text-green-700">
-                    {subject.label} (Max: {subject.max_marks})
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {subjects.length === 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <h4 className="font-medium text-yellow-800 mb-2">No Subjects Found</h4>
-              <p className="text-sm text-yellow-700">
-                Please add subjects first in the Subject Management section before using bulk marks entry.
+        <div className="bg-orange-50 p-4 rounded-lg">
+          <div className="flex items-start space-x-2">
+            <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
+            <div>
+              <h4 className="font-medium text-orange-800">Important:</h4>
+              <p className="text-sm text-orange-700">
+                You must provide marks for ALL subjects for ALL students. Any student with missing marks will be skipped.
               </p>
             </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>Grade</Label>
+            <Select value={selectedGrade} onValueChange={setSelectedGrade}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select grade" />
+              </SelectTrigger>
+              <SelectContent>
+                {grades.map((grade) => (
+                  <SelectItem key={grade} value={grade}>
+                    {grade}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Term</Label>
+            <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select term" />
+              </SelectTrigger>
+              <SelectContent>
+                {terms.map((term) => (
+                  <SelectItem key={term} value={term}>
+                    {term}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Academic Year</Label>
+            <Input
+              value={selectedAcademicYear}
+              onChange={(e) => setSelectedAcademicYear(e.target.value)}
+              placeholder="e.g., 2024"
+            />
+          </div>
+        </div>
+
+        {selectedGrade && (
+          <div className="bg-green-50 p-3 rounded-lg">
+            <p className="text-sm text-green-700">
+              <strong>{getGradeStudentCount()}</strong> students found in {selectedGrade}
+            </p>
+          </div>
+        )}
+
+        <div className="flex gap-4">
+          <Button
+            onClick={downloadCSVTemplate}
+            disabled={!selectedGrade || !selectedTerm}
+            variant="outline"
+            className="flex items-center space-x-2"
+          >
+            <Download className="h-4 w-4" />
+            <span>Download CSV Template</span>
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="marks-upload">Upload Completed CSV</Label>
+          <Input
+            id="marks-upload"
+            type="file"
+            accept=".csv"
+            onChange={handleFileUpload}
+            disabled={uploading || !selectedGrade || !selectedTerm}
+          />
+        </div>
+
+        {uploading && (
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2 text-blue-600">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <span>Uploading marks... {uploadProgress}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
