@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Settings, Plus, Edit } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import {
   type FeeConfiguration as FeeConfigType,
   fetchFeeConfigurations,
@@ -23,13 +24,21 @@ const FeeConfiguration = () => {
     amount: ""
   });
 
+  const { isAuthenticated } = useAuth();
   const terms = ["Term 1", "Term 2", "Term 3"];
 
   useEffect(() => {
-    loadFeeConfigurations();
-  }, []);
+    if (isAuthenticated) {
+      loadFeeConfigurations();
+    }
+  }, [isAuthenticated]);
 
   const loadFeeConfigurations = async () => {
+    if (!isAuthenticated) {
+      console.log("Not authenticated, skipping fee configurations load");
+      return;
+    }
+
     try {
       setLoading(true);
       const configs = await fetchFeeConfigurations();
@@ -48,6 +57,16 @@ const FeeConfiguration = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to save fee configurations",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!formData.amount || parseFloat(formData.amount) <= 0) {
       toast({
         title: "Invalid Amount",
@@ -111,6 +130,26 @@ const FeeConfiguration = () => {
       amount: ""
     });
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Fee Configuration</h2>
+          <p className="text-gray-600">Authentication required to access fee configurations</p>
+        </div>
+        <Card>
+          <CardContent className="py-8">
+            <div className="text-center">
+              <Settings className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Authentication Required</h3>
+              <p className="text-gray-600">Please sign in to manage fee configurations.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
