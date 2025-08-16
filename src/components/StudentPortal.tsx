@@ -140,28 +140,23 @@ const StudentPortal = () => {
     });
   };
 
-  const getSubjectMark = async (student: Student, subjectKey: string, term: string) => {
+  const getSubjectMark = (examResult: ExaminationMark, subjectKey: string) => {
+    if (!examResult.subject_marks) return 0;
+    
+    let parsedSubjectMarks: any[] = [];
     try {
-      const { data, error } = await supabase
-        .from('student_subject_marks')
-        .select('marks')
-        .eq('student_id', student.id)
-        .eq('subject_id', subjectKey)
-        .eq('grade', student.grade)
-        .eq('term', term)
-        .eq('academic_year', currentYear)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching subject mark:', error);
-        return 0;
+      if (Array.isArray(examResult.subject_marks)) {
+        parsedSubjectMarks = examResult.subject_marks;
+      } else if (typeof examResult.subject_marks === 'string') {
+        parsedSubjectMarks = JSON.parse(examResult.subject_marks);
       }
-
-      return data?.marks || 0;
     } catch (error) {
-      console.error('Error in getSubjectMark:', error);
+      console.error("Error parsing subject marks:", error);
       return 0;
     }
+    
+    const subjectMark = parsedSubjectMarks.find(mark => mark.subject_id === subjectKey);
+    return subjectMark?.marks || 0;
   };
 
   const getMarksBadgeVariant = (marks: number, maxMarks: number = 100) => {
@@ -311,14 +306,7 @@ const StudentPortal = () => {
                                     </TableHeader>
                                     <TableBody>
                                       {subjects.map((subject) => {
-                                        const [marks, setMarks] = useState(0);
-                                        
-                                        useEffect(() => {
-                                          if (authenticatedStudent) {
-                                            getSubjectMark(authenticatedStudent, subject.key, result.term).then(setMarks);
-                                          }
-                                        }, [authenticatedStudent, subject.key, result.term]);
-
+                                        const marks = getSubjectMark(result, subject.key);
                                         const percentage = ((marks / subject.max_marks) * 100).toFixed(1);
                                         return (
                                           <TableRow key={subject.key}>

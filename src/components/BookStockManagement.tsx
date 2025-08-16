@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,10 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, Plus, Filter, Upload } from "lucide-react";
+import { BookOpen, Plus, Filter } from "lucide-react";
 import { getBookStock, addBookStock, updateBookStock, deleteBookStock, BookStock } from "@/utils/bookDatabase";
 import GradeBookManagement from "./GradeBookManagement";
-import BulkBookUpload from "./BulkBookUpload";
 
 const BookStockManagement = () => {
   const [books, setBooks] = useState<BookStock[]>([]);
@@ -116,19 +116,13 @@ const BookStockManagement = () => {
       </div>
 
       <Tabs defaultValue="grade-based" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="grade-based">Grade-Based Management</TabsTrigger>
-          <TabsTrigger value="bulk-upload">Bulk Upload</TabsTrigger>
           <TabsTrigger value="general">General Stock</TabsTrigger>
-          <TabsTrigger value="inventory">All Inventory</TabsTrigger>
         </TabsList>
 
         <TabsContent value="grade-based">
           <GradeBookManagement />
-        </TabsContent>
-
-        <TabsContent value="bulk-upload">
-          <BulkBookUpload />
         </TabsContent>
 
         <TabsContent value="general" className="space-y-6">
@@ -198,9 +192,7 @@ const BookStockManagement = () => {
               </Button>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="inventory">
           {/* All Books Inventory */}
           <Card>
             <CardHeader>

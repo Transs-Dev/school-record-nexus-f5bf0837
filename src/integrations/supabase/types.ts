@@ -333,42 +333,6 @@ export type Database = {
           },
         ]
       }
-      grade_configurations: {
-        Row: {
-          created_at: string
-          grade_letter: string
-          id: string
-          is_active: boolean
-          max_marks: number
-          min_marks: number
-          points: number
-          remarks: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          grade_letter: string
-          id?: string
-          is_active?: boolean
-          max_marks: number
-          min_marks: number
-          points: number
-          remarks: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          grade_letter?: string
-          id?: string
-          is_active?: boolean
-          max_marks?: number
-          min_marks?: number
-          points?: number
-          remarks?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       laboratory_clearance: {
         Row: {
           academic_year: string | null
@@ -556,45 +520,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      student_subject_marks: {
-        Row: {
-          academic_year: string
-          created_at: string
-          grade: string
-          id: string
-          marks: number
-          max_marks: number
-          student_id: string
-          subject_id: string
-          term: string
-          updated_at: string
-        }
-        Insert: {
-          academic_year?: string
-          created_at?: string
-          grade: string
-          id?: string
-          marks?: number
-          max_marks?: number
-          student_id: string
-          subject_id: string
-          term: string
-          updated_at?: string
-        }
-        Update: {
-          academic_year?: string
-          created_at?: string
-          grade?: string
-          id?: string
-          marks?: number
-          max_marks?: number
-          student_id?: string
-          subject_id?: string
-          term?: string
-          updated_at?: string
-        }
-        Relationships: []
       }
       students: {
         Row: {
