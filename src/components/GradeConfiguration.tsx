@@ -1,13 +1,12 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, Save, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface GradeConfig {
   id: string;
@@ -33,10 +32,13 @@ const GradeConfiguration = () => {
   });
   const [editGrade, setEditGrade] = useState<Partial<GradeConfig>>({});
   const { toast } = useToast();
+  const { hasRole, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    fetchGradeConfigs();
-  }, []);
+    if (!authLoading) {
+      fetchGradeConfigs();
+    }
+  }, [authLoading]);
 
   const fetchGradeConfigs = async () => {
     try {
@@ -171,11 +173,24 @@ const GradeConfiguration = () => {
     setNewGrade({ grade_letter: '', min_marks: 0, max_marks: 0, points: 0, remarks: '' });
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!hasRole('admin') && !hasRole('teacher')) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="text-lg font-semibold text-gray-900 mb-2">Access Restricted</div>
+            <p className="text-gray-600">You need admin or teacher privileges to manage grade configurations.</p>
+          </div>
         </CardContent>
       </Card>
     );
