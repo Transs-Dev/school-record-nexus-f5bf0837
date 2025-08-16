@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Download, Upload, FileSpreadsheet } from "lucide-react";
 import { fetchStudentsByGrade, saveExaminationMarks, type Student } from "@/utils/studentDatabase";
 import { fetchSubjects, type Subject } from "@/utils/subjectDatabase";
-import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
 const BulkMarksEntry = () => {
@@ -19,7 +19,6 @@ const BulkMarksEntry = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const { toast } = useToast();
-  const { isAuthenticated } = useAuth();
 
   const terms = ["Term 1", "Term 2", "Term 3"];
   const grades = [
@@ -28,17 +27,10 @@ const BulkMarksEntry = () => {
   ];
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadSubjects();
-    }
-  }, [isAuthenticated]);
+    loadSubjects();
+  }, []);
 
   const loadSubjects = async () => {
-    if (!isAuthenticated) {
-      console.log("Not authenticated, skipping subjects load");
-      return;
-    }
-
     try {
       const subjectsData = await fetchSubjects();
       setSubjects(subjectsData);
@@ -53,15 +45,6 @@ const BulkMarksEntry = () => {
   };
 
   const generateCSVTemplate = async () => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to generate templates",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (!selectedGrade || !selectedTerm) {
       toast({
         title: "Error",
@@ -196,15 +179,6 @@ const BulkMarksEntry = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!isAuthenticated) {
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to upload marks",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (!selectedGrade || !selectedTerm) {
       toast({
         title: "Error",
@@ -315,31 +289,6 @@ const BulkMarksEntry = () => {
       setUploadProgress({ current: 0, total: 0 });
     }
   };
-
-  if (!isAuthenticated) {
-    return (
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <FileSpreadsheet className="h-5 w-5" />
-              <span>Bulk Marks Entry</span>
-            </CardTitle>
-            <CardDescription>
-              Authentication required to access bulk marks entry
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="py-8">
-            <div className="text-center">
-              <FileSpreadsheet className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Authentication Required</h3>
-              <p className="text-gray-600">Please sign in to upload student marks.</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
