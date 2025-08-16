@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { Upload, Download, FileSpreadsheet, AlertCircle } from "lucide-react";
 import { fetchAllStudents, Student } from "@/utils/studentDatabase";
 import { fetchSubjects, Subject } from "@/utils/subjectDatabase";
 import { supabase } from "@/integrations/supabase/client";
-import { calculateOverallGrade } from "@/utils/gradingSystem";
+import { calculateOverallGrade, fetchGradingScale } from "@/utils/gradingSystem";
 
 const BulkMarksEntry = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -217,7 +218,7 @@ const BulkMarksEntry = () => {
 
         const totalMarks = subjectMarks.reduce((sum, mark) => sum + mark.marks, 0);
         const totalMaxMarks = subjectMarks.reduce((sum, mark) => sum + mark.max_marks, 0);
-        const overallGrade = calculateOverallGrade(totalMarks, totalMaxMarks);
+        const overallGrade = await calculateOverallGrade(totalMarks, totalMaxMarks);
 
         marksData.push({
           student_id: student.id,
@@ -252,22 +253,8 @@ const BulkMarksEntry = () => {
         const batch = marksData.slice(i, i + batchSize);
         
         const promises = batch.map(async (studentMarks) => {
-          // Check if record already exists
-          const { data: existing, error: checkError } = await supabase
-            .from('examination_marks')
-            .select('id')
-            .eq('student_id', studentMarks.student_id)
-            .eq('grade', studentMarks.grade)
-            .eq('term', studentMarks.term)
-            .eq('academic_year', studentMarks.academic_year)
-            .maybeSingle();
-
-          if (checkError) {
-            console.error('Error checking existing record:', checkError);
-            throw checkError;
-          }
-
-          const dataToSave = {
+          // Save examination_marks record
+          const examDataToSave = {
             student_id: studentMarks.student_id,
             grade: studentMarks.grade,
             term: studentMarks.term,
@@ -278,28 +265,65 @@ const BulkMarksEntry = () => {
             updated_at: new Date().toISOString()
           };
 
-          if (existing) {
-            // Update existing record
-            console.log('Updating existing record:', existing.id, dataToSave);
-            const { error: updateError } = await supabase
-              .from('examination_marks')
-              .update(dataToSave)
-              .eq('id', existing.id);
+          // Check if examination record already exists
+          const { data: existingExam, error: checkExamError } = await supabase
+            .from('examination_marks')
+            .select('id')
+            .eq('student_id', studentMarks.student_id)
+            .eq('grade', studentMarks.grade)
+            .eq('term', studentMarks.term)
+            .eq('academic_year', studentMarks.academic_year)
+            .maybeSingle();
 
-            if (updateError) {
-              console.error('Error updating record:', updateError);
-              throw updateError;
+          if (checkExamError) {
+            console.error('Error checking existing exam record:', checkExamError);
+            throw checkExamError;
+          }
+
+          if (existingExam) {
+            // Update existing record
+            const { error: updateExamError } = await supabase
+              .from('examination_marks')
+              .update(examDataToSave)
+              .eq('id', existingExam.id);
+
+            if (updateExamError) {
+              console.error('Error updating exam record:', updateExamError);
+              throw updateExamError;
             }
           } else {
             // Insert new record
-            console.log('Inserting new record:', dataToSave);
-            const { error: insertError } = await supabase
+            const { error: insertExamError } = await supabase
               .from('examination_marks')
-              .insert(dataToSave);
+              .insert(examDataToSave);
 
-            if (insertError) {
-              console.error('Error inserting record:', insertError);
-              throw insertError;
+            if (insertExamError) {
+              console.error('Error inserting exam record:', insertExamError);
+              throw insertExamError;
+            }
+          }
+
+          // Save individual subject marks
+          for (const subjectMark of studentMarks.subject_marks) {
+            const subjectMarkData = {
+              student_id: studentMarks.student_id,
+              subject_id: subjectMark.subject_id,
+              grade: studentMarks.grade,
+              term: studentMarks.term,
+              academic_year: studentMarks.academic_year,
+              marks: subjectMark.marks,
+              max_marks: subjectMark.max_marks
+            };
+
+            const { error: subjectMarkError } = await supabase
+              .from('student_subject_marks')
+              .upsert(subjectMarkData, {
+                onConflict: 'student_id,subject_id,grade,term,academic_year'
+              });
+
+            if (subjectMarkError) {
+              console.error('Error saving subject mark:', subjectMarkError);
+              throw subjectMarkError;
             }
           }
         });

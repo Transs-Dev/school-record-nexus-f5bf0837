@@ -1,269 +1,198 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Settings, Plus, Edit } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
-import {
-  type FeeConfiguration as FeeConfigType,
-  fetchFeeConfigurations,
-  saveFeeConfiguration
-} from "@/utils/feeDatabase";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+
+interface FeeConfigurationData {
+  id: string;
+  term: string;
+  academic_year: string;
+  amount: number;
+  created_at: string;
+}
 
 const FeeConfiguration = () => {
-  const [feeConfigs, setFeeConfigs] = useState<FeeConfigType[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [editingConfig, setEditingConfig] = useState<FeeConfigType | null>(null);
-  const [formData, setFormData] = useState({
-    term: "Term 1",
-    academic_year: new Date().getFullYear().toString(),
-    amount: ""
-  });
+  const [selectedTerm, setSelectedTerm] = useState("");
+  const [academicYear, setAcademicYear] = useState(new Date().getFullYear().toString());
+  const [amount, setAmount] = useState<number | "">("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [configurations, setConfigurations] = useState<FeeConfigurationData[]>([]);
 
-  const terms = ["Term 1", "Term 2", "Term 3"];
+  const { toast } = useToast();
 
   useEffect(() => {
-    loadFeeConfigurations();
+    fetchConfigurations();
   }, []);
 
-  const loadFeeConfigurations = async () => {
+  const fetchConfigurations = async () => {
     try {
-      setLoading(true);
-      const configs = await fetchFeeConfigurations();
-      setFeeConfigs(configs);
+      const { data, error } = await supabase
+        .from('fee_configuration')
+        .select('*')
+        .order('academic_year', { ascending: false })
+        .order('term', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching fee configurations:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load fee configurations",
+          variant: "destructive",
+        });
+      } else {
+        setConfigurations(data || []);
+      }
     } catch (error) {
-      console.error("Error loading fee configurations:", error);
+      console.error('Error fetching fee configurations:', error);
       toast({
         title: "Error",
         description: "Failed to load fee configurations",
-        variant: "destructive"
+        variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+    
+    if (!selectedTerm || !amount || amount <= 0) {
       toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid fee amount",
-        variant: "destructive"
+        title: "Error",
+        description: "Please select a term and enter a valid amount",
+        variant: "destructive",
       });
       return;
     }
 
-    try {
-      setLoading(true);
-      const result = await saveFeeConfiguration({
-        term: formData.term,
-        academic_year: formData.academic_year,
-        amount: parseFloat(formData.amount)
-      });
+    setIsSubmitting(true);
 
-      console.log("Fee configuration saved:", result);
+    try {
+      const feeData = {
+        term: selectedTerm,
+        academic_year: academicYear,
+        amount: parseFloat(amount.toString())
+      };
+
+      // Use upsert to handle conflicts
+      const { error } = await supabase
+        .from('fee_configuration')
+        .upsert(feeData, {
+          onConflict: 'term,academic_year'
+        });
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
       toast({
-        title: "Fee Configuration Saved",
-        description: `Fee for ${formData.term} ${formData.academic_year} has been set to KES ${parseFloat(formData.amount).toLocaleString()}`,
+        title: "Success",
+        description: `Fee configuration saved for ${selectedTerm} ${academicYear}`,
       });
 
       // Reset form
-      setFormData({
-        term: "Term 1",
-        academic_year: new Date().getFullYear().toString(),
-        amount: ""
-      });
-      setEditingConfig(null);
-
-      // Reload configurations
-      await loadFeeConfigurations();
+      setSelectedTerm("");
+      setAmount("");
+      
+      // Refresh the configurations
+      fetchConfigurations();
     } catch (error) {
-      console.error("Error saving fee configuration:", error);
+      console.error('Error saving fee configuration:', error);
       toast({
-        title: "Save Failed",
-        description: "Failed to save fee configuration. Please try again.",
-        variant: "destructive"
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to save fee configuration",
+        variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleEdit = (config: FeeConfigType) => {
-    setEditingConfig(config);
-    setFormData({
-      term: config.term,
-      academic_year: config.academic_year,
-      amount: config.amount.toString()
-    });
-  };
-
-  const handleCancelEdit = () => {
-    setEditingConfig(null);
-    setFormData({
-      term: "Term 1",
-      academic_year: new Date().getFullYear().toString(),
-      amount: ""
-    });
-  };
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Fee Configuration</h2>
-        <p className="text-gray-600">Set fee amounts for different terms and academic years</p>
-      </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Fee Configuration</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="term">Term</Label>
+            <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a term" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Term 1">Term 1</SelectItem>
+                <SelectItem value="Term 2">Term 2</SelectItem>
+                <SelectItem value="Term 3">Term 3</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="academicYear">Academic Year</Label>
+            <Input
+              type="number"
+              id="academicYear"
+              value={academicYear}
+              onChange={(e) => setAcademicYear(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="amount">Amount</Label>
+            <Input
+              type="number"
+              id="amount"
+              value={amount}
+              onChange={(e) => setAmount(Number(e.target.value))}
+              placeholder="Enter amount"
+            />
+          </div>
+          <Button disabled={isSubmitting} className="w-full">
+            {isSubmitting ? "Saving..." : "Save Configuration"}
+          </Button>
+        </form>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Fee Configuration Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Settings className="w-5 h-5" />
-              <span>{editingConfig ? 'Edit Fee Configuration' : 'Add Fee Configuration'}</span>
-            </CardTitle>
-            <CardDescription>
-              {editingConfig ? 'Update the fee amount for this term' : 'Set the fee amount for a specific term and academic year'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="term">Term *</Label>
-                  <Select 
-                    value={formData.term} 
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, term: value }))}
-                    disabled={!!editingConfig}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {terms.map((term) => (
-                        <SelectItem key={term} value={term}>
-                          {term}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="academic_year">Academic Year *</Label>
-                  <Select 
-                    value={formData.academic_year} 
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, academic_year: value }))}
-                    disabled={!!editingConfig}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[2024, 2025, 2026, 2027].map((year) => (
-                        <SelectItem key={year} value={year.toString()}>
-                          {year}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="amount">Fee Amount (KES) *</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  placeholder="Enter fee amount"
-                  value={formData.amount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-                  required
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-
-              <div className="flex space-x-2">
-                <Button type="submit" disabled={loading} className="flex-1">
-                  {loading ? (
-                    <>
-                      <Settings className="w-4 h-4 mr-2 animate-spin" />
-                      {editingConfig ? 'Updating...' : 'Saving...'}
-                    </>
-                  ) : (
-                    <>
-                      {editingConfig ? <Edit className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                      {editingConfig ? 'Update Configuration' : 'Save Configuration'}
-                    </>
-                  )}
-                </Button>
-                {editingConfig && (
-                  <Button type="button" variant="outline" onClick={handleCancelEdit}>
-                    Cancel
-                  </Button>
-                )}
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Current Configurations */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Current Fee Configurations</CardTitle>
-            <CardDescription>
-              Existing fee amounts for different terms and years
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {feeConfigs.length === 0 ? (
-              <div className="text-center py-8">
-                <Settings className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Configurations</h3>
-                <p className="text-gray-600">No fee configurations have been set up yet.</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Term</TableHead>
-                    <TableHead>Year</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {feeConfigs.map((config) => (
-                    <TableRow key={`${config.term}-${config.academic_year}`}>
-                      <TableCell className="font-medium">{config.term}</TableCell>
-                      <TableCell>{config.academic_year}</TableCell>
-                      <TableCell>KES {config.amount.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEdit(config)}
-                          disabled={editingConfig?.id === config.id}
-                        >
-                          <Edit className="w-3 h-3 mr-1" />
-                          Edit
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+        {configurations.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-lg font-semibold mb-2">Existing Configurations</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Term
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Academic Year
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Created At
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {configurations.map((config) => (
+                    <tr key={config.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">{config.term}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{config.academic_year}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">Ksh {config.amount.toLocaleString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{new Date(config.created_at).toLocaleDateString()}</td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 

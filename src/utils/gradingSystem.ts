@@ -1,4 +1,6 @@
 
+import { supabase } from "@/integrations/supabase/client";
+
 export interface GradeInfo {
   grade: string;
   minMarks: number;
@@ -7,7 +9,8 @@ export interface GradeInfo {
   remarks: string;
 }
 
-export const GRADING_SCALE: GradeInfo[] = [
+// Default grading scale as fallback
+export const DEFAULT_GRADING_SCALE: GradeInfo[] = [
   { grade: 'A', minMarks: 80, maxMarks: 100, points: 12, remarks: 'Excellent' },
   { grade: 'A–', minMarks: 75, maxMarks: 79, points: 11, remarks: 'Very Good' },
   { grade: 'B+', minMarks: 70, maxMarks: 74, points: 10, remarks: 'Good' },
@@ -22,24 +25,51 @@ export const GRADING_SCALE: GradeInfo[] = [
   { grade: 'E', minMarks: 0, maxMarks: 29, points: 1, remarks: 'Fail' }
 ];
 
-export const calculateGrade = (marks: number, maxMarks: number): GradeInfo => {
+export const fetchGradingScale = async (): Promise<GradeInfo[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('grade_configurations')
+      .select('*')
+      .eq('is_active', true)
+      .order('min_marks', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching grade configurations:', error);
+      return DEFAULT_GRADING_SCALE;
+    }
+
+    return data?.map(config => ({
+      grade: config.grade_letter,
+      minMarks: config.min_marks,
+      maxMarks: config.max_marks,
+      points: config.points,
+      remarks: config.remarks
+    })) || DEFAULT_GRADING_SCALE;
+  } catch (error) {
+    console.error('Error in fetchGradingScale:', error);
+    return DEFAULT_GRADING_SCALE;
+  }
+};
+
+export const calculateGrade = async (marks: number, maxMarks: number): Promise<GradeInfo> => {
   const percentage = (marks / maxMarks) * 100;
+  const gradingScale = await fetchGradingScale();
   
-  for (const gradeInfo of GRADING_SCALE) {
+  for (const gradeInfo of gradingScale) {
     if (percentage >= gradeInfo.minMarks && percentage <= gradeInfo.maxMarks) {
       return gradeInfo;
     }
   }
   
   // Default to lowest grade if something goes wrong
-  return GRADING_SCALE[GRADING_SCALE.length - 1];
+  return gradingScale[gradingScale.length - 1];
 };
 
-export const calculateSubjectGrade = (marks: number, maxMarks: number): string => {
-  const gradeInfo = calculateGrade(marks, maxMarks);
+export const calculateSubjectGrade = async (marks: number, maxMarks: number): Promise<string> => {
+  const gradeInfo = await calculateGrade(marks, maxMarks);
   return gradeInfo.grade;
 };
 
-export const calculateOverallGrade = (totalMarks: number, totalMaxMarks: number): GradeInfo => {
-  return calculateGrade(totalMarks, totalMaxMarks);
+export const calculateOverallGrade = async (totalMarks: number, totalMaxMarks: number): Promise<GradeInfo> => {
+  return await calculateGrade(totalMarks, totalMaxMarks);
 };
