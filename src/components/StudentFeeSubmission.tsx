@@ -31,11 +31,19 @@ const StudentFeeSubmission = () => {
     term: "Term 1",
     academic_year: new Date().getFullYear().toString(),
     amount: "",
-    payment_mode: "Cash"
+    payment_mode: "Cash",
+    transaction_code: ""
   });
 
   const terms = ["Term 1", "Term 2", "Term 3"];
   const paymentModes = ["Cash", "Mobile Money", "Bank"];
+  
+  // Generate dynamic academic years (current year - 2 to current year + 3)
+  const currentYear = new Date().getFullYear();
+  const academicYears = Array.from(
+    { length: 6 }, 
+    (_, i) => currentYear - 2 + i
+  );
 
   useEffect(() => {
     loadStudents();
@@ -169,7 +177,8 @@ const StudentFeeSubmission = () => {
         academic_year: paymentForm.academic_year,
         amount: paymentAmount,
         payment_mode: paymentForm.payment_mode as 'Cash' | 'Mobile Money' | 'Bank',
-        verification_status: 'Verified' as const
+        verification_status: 'Verified' as const,
+        transaction_code: paymentForm.transaction_code || undefined
       };
 
       console.log("Submitting payment:", paymentData);
@@ -186,7 +195,8 @@ const StudentFeeSubmission = () => {
         term: "Term 1",
         academic_year: new Date().getFullYear().toString(),
         amount: "",
-        payment_mode: "Cash"
+        payment_mode: "Cash",
+        transaction_code: ""
       });
       setSelectedStudent(null);
       setStudentFeeRecord(null);
@@ -323,7 +333,7 @@ const StudentFeeSubmission = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {[2024, 2025, 2026].map((year) => (
+                        {academicYears.map((year) => (
                           <SelectItem key={year} value={year.toString()}>
                             {year}
                           </SelectItem>
@@ -349,6 +359,22 @@ const StudentFeeSubmission = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Transaction Code (Optional for Mobile Money and Bank) */}
+                {(paymentForm.payment_mode === "Mobile Money" || paymentForm.payment_mode === "Bank") && (
+                  <div className="space-y-2">
+                    <Label htmlFor="transaction_code">
+                      Transaction Code {paymentForm.payment_mode === "Mobile Money" ? "(M-Pesa Code)" : "(Bank Reference)"}
+                    </Label>
+                    <Input
+                      id="transaction_code"
+                      type="text"
+                      placeholder={`Enter ${paymentForm.payment_mode === "Mobile Money" ? "M-Pesa confirmation code" : "bank reference number"}`}
+                      value={paymentForm.transaction_code}
+                      onChange={(e) => setPaymentForm(prev => ({ ...prev, transaction_code: e.target.value }))}
+                    />
+                  </div>
+                )}
 
                 {/* Fee Information */}
                 <div className="space-y-3">
