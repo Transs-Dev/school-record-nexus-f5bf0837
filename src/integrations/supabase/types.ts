@@ -740,11 +740,23 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      is_admin_authenticated: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       reset_registration_sequence: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
       reset_school_system: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      revoke_admin_session: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      set_admin_session: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }

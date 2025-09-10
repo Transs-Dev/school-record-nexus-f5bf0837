@@ -19,7 +19,7 @@ const PinProtection: React.FC<PinProtectionProps> = ({ children, sectionName }) 
   const [loading, setLoading] = useState(false);
   const [showPin, setShowPin] = useState(false);
 
-  const checkPinStatus = () => {
+  const checkPinStatus = async () => {
     // Check if PIN was recently entered for this session
     const unlockStatus = sessionStorage.getItem(`pin_unlocked_${sectionName}`);
     const unlockTime = sessionStorage.getItem(`pin_unlock_time_${sectionName}`);
@@ -28,6 +28,12 @@ const PinProtection: React.FC<PinProtectionProps> = ({ children, sectionName }) 
       const timeElapsed = Date.now() - parseInt(unlockTime);
       // Auto-lock after 30 minutes of inactivity
       if (timeElapsed < 30 * 60 * 1000) {
+        // Re-establish admin session for continued access
+        try {
+          await supabase.rpc('set_admin_session');
+        } catch (error) {
+          console.error('Error setting admin session:', error);
+        }
         setIsUnlocked(true);
       } else {
         sessionStorage.removeItem(`pin_unlocked_${sectionName}`);
@@ -65,6 +71,9 @@ const PinProtection: React.FC<PinProtectionProps> = ({ children, sectionName }) 
       // In a real app, you'd hash the entered PIN and compare
       // For now, we're doing direct comparison (not secure)
       if (pin === data.pin_hash) {
+        // Set admin session for secure access to financial data
+        await supabase.rpc('set_admin_session');
+        
         setIsUnlocked(true);
         sessionStorage.setItem(`pin_unlocked_${sectionName}`, 'true');
         sessionStorage.setItem(`pin_unlock_time_${sectionName}`, Date.now().toString());
@@ -94,7 +103,14 @@ const PinProtection: React.FC<PinProtectionProps> = ({ children, sectionName }) 
     }
   };
 
-  const handleLock = () => {
+  const handleLock = async () => {
+    // Revoke admin session to secure financial data
+    try {
+      await supabase.rpc('revoke_admin_session');
+    } catch (error) {
+      console.error('Error revoking admin session:', error);
+    }
+    
     setIsUnlocked(false);
     sessionStorage.removeItem(`pin_unlocked_${sectionName}`);
     sessionStorage.removeItem(`pin_unlock_time_${sectionName}`);
