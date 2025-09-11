@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { Search, Filter, Edit, Trash2, Save, X } from "lucide-react";
 import { fetchAllStudents, printStudentList, downloadStudentList, type Student } from "@/utils/studentDatabase";
+import { generateStudentRecordsPDF } from "@/utils/pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -231,12 +232,21 @@ const StudentRecords = () => {
     }
   };
 
-  const handlePrint = () => {
-    printStudentList(filteredStudents);
-    toast({
-      title: "Print Prepared",
-      description: `Preparing to print ${filteredStudents.length} student records...`,
-    });
+  const handlePrint = async () => {
+    try {
+      const pdf = await generateStudentRecordsPDF(filteredStudents, `Student Records - ${selectedGrade || 'All Grades'}`);
+      pdf.save(`student-records-${selectedGrade || 'all'}-${new Date().toISOString().split('T')[0]}.pdf`);
+      toast({
+        title: "Success",
+        description: "Student records PDF generated successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDownload = () => {
