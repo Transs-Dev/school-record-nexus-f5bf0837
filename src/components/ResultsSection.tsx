@@ -162,13 +162,22 @@ const ResultsSection = () => {
     return "destructive";
   };
 
-  const getLetterGrade = (totalMarks: number, maxPossibleMarks: number) => {
+  const getCBCGrade = (totalMarks: number, maxPossibleMarks: number) => {
     const percentage = maxPossibleMarks > 0 ? (totalMarks / maxPossibleMarks) * 100 : 0;
-    if (percentage >= 80) return "A";
-    if (percentage >= 70) return "B";
-    if (percentage >= 60) return "C";
-    if (percentage >= 50) return "D";
-    return "E";
+    if (percentage >= 80) return { letter: "EE", descriptor: "Exceeding Expectation", percentage };
+    if (percentage >= 50) return { letter: "ME", descriptor: "Meeting Expectation", percentage };
+    if (percentage >= 40) return { letter: "AE", descriptor: "Approaching Expectation", percentage };
+    return { letter: "BE", descriptor: "Below Expectation", percentage };
+  };
+
+  const getCBCBadgeVariant = (gradeIndicator: string) => {
+    switch (gradeIndicator) {
+      case 'EE': return "default";
+      case 'ME': return "secondary";
+      case 'AE': return "outline";
+      case 'BE': return "destructive";
+      default: return "outline";
+    }
   };
 
   const handlePrint = () => {
@@ -232,15 +241,15 @@ const ResultsSection = () => {
                 <th>Student Name</th>
                 ${subjects.map(subject => `<th>${subject.label}</th>`).join('')}
                 <th>Total Marks</th>
-                <th>Grade</th>
+                <th>CBC Grade & Percentage</th>
               </tr>
             </thead>
             <tbody>
               ${examResults.map((result, index) => {
                 const student = students.find(s => s.id === result.student_id);
                 const position = index + 1;
-                const letterGrade = getLetterGrade(result.total_marks || 0, maxPossibleMarks);
-                const gradeClass = `grade-${letterGrade.toLowerCase()}`;
+                const cbcGrade = getCBCGrade(result.total_marks || 0, maxPossibleMarks);
+                const gradeClass = `grade-${cbcGrade.letter.toLowerCase()}`;
                 
                 if (!student) return '';
                 
@@ -253,8 +262,8 @@ const ResultsSection = () => {
                       const marks = getSubjectMark(result, subject.key);
                       return `<td>${marks}</td>`;
                     }).join('')}
-                    <td><strong>${result.total_marks || 0}/${maxPossibleMarks}</strong></td>
-                    <td class="${gradeClass}"><strong>${letterGrade}</strong></td>
+                    <td><strong>${result.total_marks || 0}/${maxPossibleMarks} (${cbcGrade.percentage.toFixed(1)}%)</strong></td>
+                    <td class="${gradeClass}"><strong>${cbcGrade.letter} - ${cbcGrade.descriptor}</strong></td>
                   </tr>
                 `;
               }).join('')}
@@ -304,7 +313,7 @@ const ResultsSection = () => {
       'Total Marks',
       'Max Possible',
       'Percentage',
-      'Grade'
+      'CBC Grade'
     ];
 
     const csvRows = [
@@ -313,8 +322,8 @@ const ResultsSection = () => {
         const student = students.find(s => s.id === result.student_id);
         const position = index + 1;
         const totalMarks = result.total_marks || 0;
-        const percentage = maxPossibleMarks > 0 ? ((totalMarks / maxPossibleMarks) * 100).toFixed(1) : '0.0';
-        const letterGrade = getLetterGrade(totalMarks, maxPossibleMarks);
+        const cbcGrade = getCBCGrade(totalMarks, maxPossibleMarks);
+        const percentage = cbcGrade.percentage.toFixed(1);
         
         if (!student) return '';
         
@@ -326,7 +335,7 @@ const ResultsSection = () => {
           totalMarks,
           maxPossibleMarks,
           `${percentage}%`,
-          letterGrade
+          `${cbcGrade.letter} - ${cbcGrade.descriptor}`
         ];
         
         return row.join(',');
@@ -456,7 +465,7 @@ const ResultsSection = () => {
                       </TableHead>
                     ))}
                     <TableHead className="min-w-[100px] text-center">Total</TableHead>
-                    <TableHead className="min-w-[80px] text-center">Grade</TableHead>
+                    <TableHead className="min-w-[120px] text-center">CBC Grade</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -464,7 +473,7 @@ const ResultsSection = () => {
                     const student = getStudentByExamResult(result);
                     const position = index + 1;
                     const maxPossibleMarks = subjects.reduce((sum, subject) => sum + subject.max_marks, 0);
-                    const letterGrade = getLetterGrade(result.total_marks || 0, maxPossibleMarks);
+                    const cbcGrade = getCBCGrade(result.total_marks || 0, maxPossibleMarks);
                     
                     if (!student) return null;
                     
@@ -494,18 +503,24 @@ const ResultsSection = () => {
                             </TableCell>
                           );
                         })}
+                         <TableCell className="text-center">
+                           <Badge 
+                             variant={getMarksBadgeVariant(result.total_marks || 0, maxPossibleMarks)}
+                             className="text-lg font-bold"
+                           >
+                             {result.total_marks || 0}/{maxPossibleMarks}
+                           </Badge>
+                           <div className="text-xs text-gray-500 mt-1">
+                             {cbcGrade.percentage.toFixed(1)}%
+                           </div>
+                         </TableCell>
                         <TableCell className="text-center">
-                          <Badge 
-                            variant={getMarksBadgeVariant(result.total_marks || 0, maxPossibleMarks)}
-                            className="text-lg font-bold"
-                          >
-                            {result.total_marks || 0}
+                          <Badge variant={getCBCBadgeVariant(cbcGrade.letter)} className="font-bold">
+                            {cbcGrade.letter} - {cbcGrade.descriptor}
                           </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className="font-bold">
-                            {letterGrade}
-                          </Badge>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {cbcGrade.percentage.toFixed(1)}%
+                          </div>
                         </TableCell>
                       </TableRow>
                     );

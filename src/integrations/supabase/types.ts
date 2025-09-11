@@ -110,6 +110,42 @@ export type Database = {
           },
         ]
       }
+      cbc_grading: {
+        Row: {
+          created_at: string
+          grade_descriptor: string
+          grade_letter: string
+          id: string
+          is_active: boolean
+          max_percentage: number
+          min_percentage: number
+          points: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          grade_descriptor: string
+          grade_letter: string
+          id?: string
+          is_active?: boolean
+          max_percentage: number
+          min_percentage: number
+          points?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          grade_descriptor?: string
+          grade_letter?: string
+          id?: string
+          is_active?: boolean
+          max_percentage?: number
+          min_percentage?: number
+          points?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       classes: {
         Row: {
           class_name: string
@@ -739,6 +775,14 @@ export type Database = {
       generate_registration_number: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_cbc_grade: {
+        Args: { percentage: number }
+        Returns: {
+          grade_descriptor: string
+          grade_letter: string
+          points: number
+        }[]
       }
       is_admin_authenticated: {
         Args: Record<PropertyKey, never>

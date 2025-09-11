@@ -188,12 +188,21 @@ const StudentPortal = () => {
     return "destructive"; // E
   };
 
-  const getLetterGrade = (percentage: number) => {
-    if (percentage >= 80) return "A";
-    if (percentage >= 70) return "B";
-    if (percentage >= 60) return "C";
-    if (percentage >= 50) return "D";
-    return "E";
+  const getCBCGrade = (percentage: number) => {
+    if (percentage >= 80) return { letter: "EE", descriptor: "Exceeding Expectation" };
+    if (percentage >= 50) return { letter: "ME", descriptor: "Meeting Expectation" };
+    if (percentage >= 40) return { letter: "AE", descriptor: "Approaching Expectation" };
+    return { letter: "BE", descriptor: "Below Expectation" };
+  };
+
+  const getCBCBadgeVariant = (gradeIndicator: string) => {
+    switch (gradeIndicator) {
+      case 'EE': return "default";
+      case 'ME': return "secondary";
+      case 'AE': return "outline";
+      case 'BE': return "destructive";
+      default: return "outline";
+    }
   };
 
   // Show authentication form if no student is authenticated
@@ -264,7 +273,7 @@ const StudentPortal = () => {
                     {examResults.map((result) => {
                       const totalMaxMarks = subjects.reduce((sum, subject) => sum + subject.max_marks, 0);
                       const percentage = totalMaxMarks > 0 ? ((result.total_marks || 0) / totalMaxMarks) * 100 : 0;
-                      const letterGrade = getLetterGrade(percentage);
+                      const cbcGrade = getCBCGrade(percentage);
                       
                       return (
                         <Card key={result.id}>
@@ -281,8 +290,11 @@ const StudentPortal = () => {
                                     Position: {result.position}
                                   </Badge>
                                 </div>
-                                <Badge variant={getGradeBadgeVariant(percentage)} className="text-lg font-bold">
-                                  Grade: {letterGrade}
+                                <Badge variant={getCBCBadgeVariant(cbcGrade.letter)} className="text-lg font-bold">
+                                  {cbcGrade.letter} - {cbcGrade.descriptor}
+                                </Badge>
+                                <Badge variant="outline" className="text-sm">
+                                  {percentage.toFixed(1)}%
                                 </Badge>
                                 <Badge variant="outline">
                                   Total: {result.total_marks || 0}/{totalMaxMarks}
