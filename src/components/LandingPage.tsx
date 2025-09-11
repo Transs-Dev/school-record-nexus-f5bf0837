@@ -79,14 +79,9 @@ const LandingPage = () => {
               we provide all the tools you need for seamless school operations and educational excellence.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-              <Link to="/auth">
+              <Link to="/dashboard">
                 <Button size="lg" className="px-8 py-4 text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-300 hover:shadow-lg">
-                  Sign In / Sign Up
-                </Button>
-              </Link>
-              <Link to="/student-portal">
-                <Button variant="outline" size="lg" className="px-8 py-4 text-lg font-semibold border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transform hover:scale-105 transition-all duration-300 hover:shadow-lg">
-                  Student Portal
+                  Access Dashboard
                 </Button>
               </Link>
               <Link to="/about">
@@ -202,7 +197,7 @@ const LandingPage = () => {
             for their daily operations and student success.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/auth">
+            <Link to="/dashboard">
               <Button size="lg" className="px-12 py-4 text-lg font-semibold bg-white text-blue-600 hover:bg-gray-100 transform hover:scale-105 transition-all duration-300 hover:shadow-lg">
                 Get Started Today
               </Button>
@@ -232,8 +227,7 @@ const LandingPage = () => {
             <div>
               <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
               <ul className="space-y-2 text-gray-400">
-                <li><Link to="/auth" className="hover:text-white transition-colors">Sign In</Link></li>
-                <li><Link to="/student-portal" className="hover:text-white transition-colors">Student Portal</Link></li>
+                <li><Link to="/dashboard" className="hover:text-white transition-colors">Dashboard</Link></li>
                 <li><Link to="/about" className="hover:text-white transition-colors">About</Link></li>
               </ul>
             </div>
