@@ -11,73 +11,122 @@ declare module 'jspdf' {
 }
 
 export const generateStudentRecordsPDF = async (students: Student[], title: string = "Student Records") => {
-  const pdf = new jsPDF();
+  const pdf = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4'
+  });
   
-  // Add school header
-  pdf.setFontSize(18);
-  pdf.setTextColor(40, 44, 52);
-  pdf.text('School Management System', 20, 20);
+  // School Header with Logo Area
+  pdf.setFontSize(20);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(25, 35, 75);
+  pdf.text('SCHOOL MANAGEMENT SYSTEM', 148, 20, { align: 'center' });
   
-  pdf.setFontSize(14);
-  pdf.text(title, 20, 30);
+  pdf.setFontSize(16);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(60, 80, 120);
+  pdf.text(title.toUpperCase(), 148, 30, { align: 'center' });
   
-  pdf.setFontSize(10);
+  // Separator line
+  pdf.setDrawColor(25, 35, 75);
+  pdf.setLineWidth(1);
+  pdf.line(20, 35, 277, 35);
+  
+  // Date and summary info
+  pdf.setFontSize(9);
   pdf.setTextColor(100, 100, 100);
-  pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 40);
+  pdf.text(`Generated on: ${new Date().toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  })}`, 20, 45);
+  pdf.text(`Total Records: ${students.length}`, 220, 45);
   
-  // Add line separator
-  pdf.setDrawColor(200, 200, 200);
-  pdf.line(20, 45, 190, 45);
-  
-  // Prepare table data
+  // Prepare enhanced table data
   const tableData = students.map((student, index) => [
-    index + 1,
+    (index + 1).toString(),
     student.registration_number,
     student.student_name,
     student.grade,
     student.gender,
     student.parent_name,
     student.primary_contact,
-    new Date(student.admission_date).toLocaleDateString()
+    new Date(student.admission_date).toLocaleDateString('en-US', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    })
   ]);
   
-  // Add table
+  // Enhanced table with better styling
   pdf.autoTable({
-    head: [['#', 'Reg. Number', 'Student Name', 'Grade', 'Gender', 'Parent/Guardian', 'Contact', 'Admission Date']],
+    head: [['#', 'Registration Number', 'Student Name', 'Grade', 'Gender', 'Parent/Guardian', 'Contact', 'Admission Date']],
     body: tableData,
     startY: 55,
+    margin: { left: 20, right: 20 },
     styles: {
       fontSize: 8,
-      cellPadding: 3,
+      cellPadding: { top: 4, right: 3, bottom: 4, left: 3 },
+      font: 'helvetica',
+      textColor: [40, 40, 40],
+      lineColor: [200, 200, 200],
+      lineWidth: 0.1,
     },
     headStyles: {
-      fillColor: [59, 130, 246],
+      fillColor: [25, 35, 75],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
+      fontSize: 9,
+      cellPadding: { top: 5, right: 3, bottom: 5, left: 3 },
     },
     alternateRowStyles: {
-      fillColor: [249, 250, 251],
+      fillColor: [248, 249, 252],
     },
     columnStyles: {
-      0: { cellWidth: 15 },
-      1: { cellWidth: 25 },
-      2: { cellWidth: 35 },
-      3: { cellWidth: 20 },
-      4: { cellWidth: 20 },
-      5: { cellWidth: 35 },
-      6: { cellWidth: 25 },
-      7: { cellWidth: 25 },
+      0: { cellWidth: 15, halign: 'center' },
+      1: { cellWidth: 30 },
+      2: { cellWidth: 45, fontStyle: 'bold' },
+      3: { cellWidth: 20, halign: 'center' },
+      4: { cellWidth: 20, halign: 'center' },
+      5: { cellWidth: 50 },
+      6: { cellWidth: 35 },
+      7: { cellWidth: 32, halign: 'center' },
+    },
+    didParseCell: function(data: any) {
+      // Highlight first column
+      if (data.column.index === 0) {
+        data.cell.styles.fillColor = [240, 242, 247];
+        data.cell.styles.fontStyle = 'bold';
+      }
+      // Style student names
+      if (data.column.index === 2) {
+        data.cell.styles.textColor = [25, 35, 75];
+      }
     },
   });
   
-  // Add footer
+  // Enhanced footer
+  const finalY = (pdf as any).lastAutoTable.finalY || 200;
   const pageCount = (pdf as any).internal.getNumberOfPages();
+  
   for (let i = 1; i <= pageCount; i++) {
     pdf.setPage(i);
+    
+    // Footer separator
+    pdf.setDrawColor(200, 200, 200);
+    pdf.setLineWidth(0.5);
+    pdf.line(20, 200, 277, 200);
+    
+    // Footer content
     pdf.setFontSize(8);
     pdf.setTextColor(100, 100, 100);
-    pdf.text(`Page ${i} of ${pageCount}`, 170, 285);
-    pdf.text('School Management System - Confidential', 20, 285);
+    pdf.text('School Management System - Confidential Document', 20, 207);
+    pdf.text(`Page ${i} of ${pageCount}`, 250, 207);
+    
+    // Add generation timestamp
+    pdf.text(`Report ID: SMS-${Date.now().toString().slice(-8)}`, 148, 207, { align: 'center' });
   }
   
   return pdf;

@@ -14,6 +14,8 @@ import {
 } from "@/utils/studentDatabase";
 import { supabase } from "@/integrations/supabase/client";
 import StudentAuth from "./StudentAuth";
+import { useAuth } from "@/hooks/useAuth";
+import { generateStudentResultsPDF } from "@/utils/pdfGenerator";
 
 interface Subject {
   id: string;
@@ -36,6 +38,7 @@ interface StudentResultWithPosition extends ExaminationMark {
 }
 
 const StudentPortal = () => {
+  const { user, signOut } = useAuth();
   const [authenticatedStudent, setAuthenticatedStudent] = useState<Student | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [examResults, setExamResults] = useState<StudentResultWithPosition[]>([]);
@@ -129,7 +132,8 @@ const StudentPortal = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOut();
     setAuthenticatedStudent(null);
     setExamResults([]);
     setFeeRecords([]);
@@ -138,6 +142,27 @@ const StudentPortal = () => {
       title: "Logged Out",
       description: "You have been logged out successfully",
     });
+  };
+
+  const printResults = async (result: StudentResultWithPosition) => {
+    if (!authenticatedStudent) return;
+    
+    try {
+      const pdf = await generateStudentResultsPDF(authenticatedStudent, result);
+      pdf.save(`${authenticatedStudent.student_name}_${result.term}_${result.academic_year}_Results.pdf`);
+      
+      toast({
+        title: "PDF Generated",
+        description: "Student results have been generated successfully",
+      });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF",
+        variant: "destructive"
+      });
+    }
   };
 
   const getSubjectMark = (examResult: ExaminationMark, subjectKey: string) => {
@@ -299,6 +324,14 @@ const StudentPortal = () => {
                                 <Badge variant="outline">
                                   Total: {result.total_marks || 0}/{totalMaxMarks}
                                 </Badge>
+                                <Button 
+                                  onClick={() => printResults(result)}
+                                  size="sm" 
+                                  variant="outline"
+                                  className="ml-auto"
+                                >
+                                  Print Results
+                                </Button>
                               </div>
                             </CardTitle>
                           </CardHeader>
