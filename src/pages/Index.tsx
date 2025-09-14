@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Menu, GraduationCap, Users, BookOpen, DollarSign, Sofa, FlaskConical, Settings, Home, BarChart, ClipboardList, LogOut } from "lucide-react";
+import { Menu, GraduationCap, Users, BookOpen, DollarSign, Sofa, FlaskConical, Settings, Home, BarChart, ClipboardList, LogOut, TrendingUp } from "lucide-react";
 import Dashboard from "@/components/Dashboard";
+import Performance from "@/components/Performance";
 import StudentEnrollment from "@/components/StudentEnrollment";
 import AcademicSection from "@/components/AcademicSection";
 import FeeManagement from "@/components/FeeManagement";
@@ -29,6 +30,7 @@ const Index = () => {
   const tabs = [
     { value: "overview", label: "Overview", icon: Home },
     { value: "dashboard", label: "Dashboard", icon: BarChart },
+    { value: "performance", label: "Performance", icon: TrendingUp },
     { value: "enrollment", label: "Enrollment", icon: Users },
     { value: "records", label: "Records", icon: ClipboardList },
     { value: "academic", label: "Academic", icon: GraduationCap },
@@ -155,6 +157,10 @@ const Index = () => {
             
             <TabsContent value="dashboard" className="mt-0">
               <Dashboard onStartTour={() => setShowTour(true)} />
+            </TabsContent>
+            
+            <TabsContent value="performance" className="mt-0">
+              <Performance />
             </TabsContent>
             
             <TabsContent value="enrollment" className="mt-0">
