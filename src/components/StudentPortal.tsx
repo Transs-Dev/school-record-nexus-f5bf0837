@@ -276,14 +276,16 @@ const StudentPortal = () => {
             </div>
 
             <Tabs defaultValue="academic" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="academic" className="flex items-center space-x-2">
+              <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 h-auto">
+                <TabsTrigger value="academic" className="flex items-center justify-center space-x-2 text-xs sm:text-sm">
                   <BookOpen className="w-4 h-4" />
-                  <span>Academic Records</span>
+                  <span className="hidden sm:inline">Academic Records</span>
+                  <span className="sm:hidden">Academic</span>
                 </TabsTrigger>
-                <TabsTrigger value="fees" className="flex items-center space-x-2">
+                <TabsTrigger value="fees" className="flex items-center justify-center space-x-2 text-xs sm:text-sm">
                   <DollarSign className="w-4 h-4" />
-                  <span>Fee Status</span>
+                  <span className="hidden sm:inline">Fee Status</span>
+                  <span className="sm:hidden">Fees</span>
                 </TabsTrigger>
               </TabsList>
 

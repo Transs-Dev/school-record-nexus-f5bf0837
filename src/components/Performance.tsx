@@ -12,6 +12,7 @@ import { Bar, BarChart, Pie, PieChart, Cell, XAxis, YAxis, CartesianGrid, Respon
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getCBCGrade, getCBCBadgeVariant, CBC_GRADES } from "@/utils/cbcGrading";
+import PerformanceReports from "./PerformanceReports";
 
 interface PerformanceData {
   studentId: string;
@@ -116,7 +117,7 @@ const Performance = () => {
     
     setLoading(true);
     try {
-      // Fetch students and their examination marks
+      // Fetch students and their examination marks with real data from Supabase
       const { data: students, error: studentsError } = await supabase
         .from('students')
         .select('*')
@@ -412,11 +413,12 @@ const Performance = () => {
 
       {!loading && classMetrics && (
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="subjects">Subject Analysis</TabsTrigger>
-            <TabsTrigger value="students">Student Performance</TabsTrigger>
-            <TabsTrigger value="remarks">Teacher Remarks</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 h-auto">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm">Overview</TabsTrigger>
+            <TabsTrigger value="subjects" className="text-xs sm:text-sm">Subjects</TabsTrigger>
+            <TabsTrigger value="students" className="text-xs sm:text-sm">Students</TabsTrigger>
+            <TabsTrigger value="remarks" className="text-xs sm:text-sm">Remarks</TabsTrigger>
+            <TabsTrigger value="reports" className="text-xs sm:text-sm">Reports</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -733,6 +735,10 @@ const Performance = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="reports" className="space-y-6">
+            <PerformanceReports />
           </TabsContent>
         </Tabs>
       )}

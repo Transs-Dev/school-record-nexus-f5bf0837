@@ -200,10 +200,10 @@ const AcademicSection = () => {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="marks-entry" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="marks-entry">Individual Marks Entry</TabsTrigger>
-              <TabsTrigger value="bulk-entry">Bulk Marks Entry</TabsTrigger>
-              <TabsTrigger value="performance">Student Performance</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 h-auto">
+              <TabsTrigger value="marks-entry" className="text-xs sm:text-sm">Individual Marks Entry</TabsTrigger>
+              <TabsTrigger value="bulk-entry" className="text-xs sm:text-sm">Bulk Marks Entry</TabsTrigger>
+              <TabsTrigger value="performance" className="text-xs sm:text-sm">Student Performance</TabsTrigger>
             </TabsList>
             
             <TabsContent value="marks-entry" className="space-y-6">
